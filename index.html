@@ -231,7 +231,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b3f195816b"; window.DY_BUILT = "2026-10-20 18:19";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "9a83609e98"; window.DY_BUILT = "2026-10-20 18:22";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -268,6 +268,8 @@ const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8" };
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
 const PEN_COLORS = [["#1d5bd8", "파랑"], ["#16202b", "검정"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#d6332a", "빨강"]];
 const PEN_WIDTHS = [[0.5, "가늘게"], [1, "보통"], [2, "굵게"], [3.5, "아주 굵게"]];
+// 지우개 반지름 (화면 px, 확대해도 손에 느끼는 크기는 같게)
+const ERASER = [["s", "소", 8], ["m", "중", 20], ["l", "대", 40]];
 
 /* ---------------- 기기 저장 (IndexedDB, 실패 시 메모리) ---------------- */
 const Local = (() => {
@@ -856,6 +858,7 @@ const ICON = {
   area: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="4" y="6" width="16" height="13" rx="1"/></svg>`,
   text: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>`,
   pen: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>`,
+  eraser: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20h12"/><path d="M4.5 15.5l9-9a2 2 0 012.8 0l3.2 3.2a2 2 0 010 2.8L13 19H8.5z"/><path d="M9 11l5 5"/></svg>`,
   undo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>`,
   redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg>`,
   fit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`,
@@ -876,7 +879,7 @@ function renderBar() {
     <button class="btn floor-btn ${fl ? "" : "unset"}" id="t-floor">${fl ? esc(fl) : "층 지정"}</button>
     <span class="sep"></span>
     <span class="tools" role="group" aria-label="표시 도구">
-      ${["pan", "point", "arrow", "area", "pen"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${t === "pan" ? "이동" : t === "pen" ? "펜" : KIND_LABEL[t]}</span></button>`).join("")}
+      ${["pan", "point", "arrow", "area", "pen", "eraser"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pan: "이동", pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
     </span>
     <button class="btn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
     <button class="btn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
@@ -898,7 +901,7 @@ function renderBar() {
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 오른쪽에서 고릅니다" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 오른쪽에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 결함 표시는 지워지지 않습니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1084,7 +1087,8 @@ function renderOverlay() {
   for (const m of ms) out += labelSVG(m, col(m), u);
   const sm = selMark(); if (sm && sm.pageKey === k) for (const h of handlesOf(sm)) out += handleSVG(h.at);
   if (draft) {
-    if (draft.type === "pen") out += noteSVG({ kind: "pen", pts: draft.pts, ...penStyle() }, COL.note, u);
+    if (draft.type === "eraser") { const rr = eraserR(); out += `<circle cx="${draft.at[0]}" cy="${draft.at[1]}" r="${rr}" fill="#fff" fill-opacity="0.35" stroke="#5a6573" stroke-width="${1.5 / (S.base * S.z)}" stroke-dasharray="${4 / (S.base * S.z)} ${3 / (S.base * S.z)}"/>`; }
+    else if (draft.type === "pen") out += noteSVG({ kind: "pen", pts: draft.pts, ...penStyle() }, COL.note, u);
     else { out += geomSVG(draft, COL.sel, u); out += labelSVG({ ...draft, no: "?" }, COL.sel, u); }
   }
   ov.innerHTML = out;
@@ -1160,6 +1164,12 @@ vp.addEventListener("pointerdown", (e) => {
   const p = toPage(e.clientX, e.clientY);
   const fingerOnly = penSeen && e.pointerType === "touch"; // 펜을 쓰면 손가락은 이동·확대만
   const panG = (extra) => ({ kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false, ...extra });
+  if (S.tool === "eraser" && !fingerOnly) {
+    gest = { kind: "erase", last: p, snap: snapshot(), changed: false };
+    draft = { type: "eraser", at: p };
+    eraseAlong(p, p); renderOverlay();
+    return;
+  }
   if (S.tool === "pen" && !fingerOnly) {
     gest = { kind: "pen", pts: [p], start: p };
     draft = { type: "pen", pts: gest.pts };
@@ -1201,6 +1211,10 @@ vp.addEventListener("pointermove", (e) => {
     S.tx = gest.tx0 + dx; S.ty = gest.ty0 + dy; applyTransform(); return;
   }
   const p = toPage(e.clientX, e.clientY);
+  if (gest.kind === "erase") {
+    eraseAlong(gest.last, p); gest.last = p; draft.at = p; renderOverlay();
+    return;
+  }
   if (gest.kind === "pen") {
     if (screenDist(p, gest.pts[gest.pts.length - 1]) >= 2) { gest.pts.push(p); renderOverlay(); }
     return;
@@ -1249,6 +1263,7 @@ function endPointer(e) {
     return;
   }
   const g = gest; gest = null;
+  if (g.kind === "erase") { draft = null; if (g.changed) pushUndo(g.snap); renderOverlay(); if (g.changed) renderPanel(); return; }
   if (e.type === "pointercancel") { if (g.kind === "move" && g.moved) restoreMove(); draft = null; renderOverlay(); return; }
   if (g.kind === "pan") {
     if (g.moved) return;
@@ -1297,6 +1312,35 @@ function finishDraw(g) {
   S.sel = m.id;
   touch(k);
   renderOverlay(); renderPanel();
+}
+// 지우개: 지나간 자리의 펜 선만 잘라냄. 선이 끊기면 남은 조각은 새 선으로 둠
+function eraserSize() { return (S.proj && S.proj.prefs && S.proj.prefs.eraser) || "m"; }
+function eraserR() { const e = ERASER.find((x) => x[0] === eraserSize()) || ERASER[1]; return e[2] / (S.base * S.z); }
+function eraseAlong(a, b) {
+  const u = U(), R = eraserR(), k = curKey(), t = now();
+  const minX = Math.min(a[0], b[0]) - R, maxX = Math.max(a[0], b[0]) + R, minY = Math.min(a[1], b[1]) - R, maxY = Math.max(a[1], b[1]) + R;
+  const r1 = (v) => Math.round(v * 10) / 10;
+  for (const n of notesOn(k)) {
+    if (n.kind !== "pen") continue;
+    const hw = penWidth(u, n) / 2, bx = noteBox(n, u);
+    if (bx.x - hw > maxX || bx.x + bx.w + hw < minX || bx.y - hw > maxY || bx.y + bx.h + hw < minY) continue;
+    // 점 사이를 촘촘히 채운 뒤 지우개 안에 든 점을 빼고 이어진 조각끼리 묶음
+    const step = Math.max(R / 3, 0.5), dense = [n.pts[0]];
+    for (let i = 1; i < n.pts.length; i++) {
+      const p0 = n.pts[i - 1], p1 = n.pts[i], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), cnt = Math.ceil(L / step);
+      for (let j = 1; j <= cnt; j++) dense.push([p0[0] + (p1[0] - p0[0]) * j / cnt, p0[1] + (p1[1] - p0[1]) * j / cnt]);
+    }
+    const keep = dense.map((q) => segDist(q, a, b) > R + hw);
+    if (keep.every(Boolean)) continue;
+    const runs = []; let cur = [];
+    dense.forEach((q, i) => { if (keep[i]) cur.push([r1(q[0]), r1(q[1])]); else { if (cur.length > 1) runs.push(cur); cur = []; } });
+    if (cur.length > 1) runs.push(cur);
+    n.deleted = true; n.updatedAt = t;
+    for (const pts of runs) S.proj.notes.push({ id: uid(), pageKey: k, kind: "pen", pts, color: n.color, w: n.w, createdAt: n.createdAt || t, updatedAt: t });
+    if (S.sel === n.id) S.sel = null;
+    gest.changed = true;
+    touch(k);
+  }
 }
 function finishPen(g) {
   draft = null;
@@ -1529,6 +1573,8 @@ function renderPageSummary(P) {
   };
   P.innerHTML = `
     <div class="ph"><div class="t"><span class="eyebrow">이 도면</span><span class="big">${esc(fl || "층 미지정")}</span></div></div>
+    ${S.tool === "eraser" ? `<div class="pen-opts" id="er-opts"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">지우개 · 펜 메모만 지워집니다</span>
+      <div class="fld"><span class="lab">크기</span><div class="chips">${ERASER.map(([k2, nm, px]) => `<button class="chip wchip" data-er="${k2}" aria-pressed="${eraserSize() === k2}"><i style="width:${px / 2}px;height:${px / 2}px;border-radius:50%"></i>${nm}</button>`).join("")}</div></div></div>` : ""}
     ${S.tool === "pen" ? `<div class="pen-opts" id="pen-opts"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">펜 · 번호 없는 메모</span>${penOptsHTML(penStyle())}</div>` : ""}
     ${fl ? `<label class="cur-photo"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">${esc(fl)} 현황사진 · 야장 PDF 왼쪽 위에 찍힘</span>
       <input class="inp num" id="f-cur" autocomplete="off" value="${esc(photoRange(fl))}" placeholder="예: 6500-6520"></label>` : ""}
@@ -1549,6 +1595,7 @@ function renderPageSummary(P) {
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기를 고를 수 있습니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다.
     </p>`;
+  P.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPanel(); }));
   if ($("#pen-opts")) bindPenOpts($("#pen-opts"), (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; touch(null); renderPanel(); });
   if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
@@ -1915,7 +1962,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { S.sel = null; renderOverlay(); renderPanel(); }
   if (e.key === "ArrowRight" || e.key === "PageDown") showPage(S.cur + 1);
   if (e.key === "ArrowLeft" || e.key === "PageUp") showPage(S.cur - 1);
-  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area", "4": "pen" };
+  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area", "4": "pen", "5": "eraser" };
   if (map[e.key]) { S.tool = map[e.key]; renderBar(); showHint(); }
 });
 
@@ -1976,6 +2023,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build b3f195816b -->
+<!-- build 9a83609e98 -->
 </body>
 </html>
