@@ -1,5 +1,5 @@
 // 결함 야장 오프라인 캐시 — build_pwa.py가 생성
-const CACHE = "dy-3207f866b4";
+const CACHE = "dy-85bf6c8e46";
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'vendor/pdf.min.js', 'vendor/pdf.worker.min.js', 'vendor/pdf-lib.min.js', 'vendor/xlsx.full.min.js'];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));

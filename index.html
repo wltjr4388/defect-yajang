@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#16202b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -46,10 +46,12 @@
   --line: #2e3945; --accent: #6e9cff; --accent-ink: #0d1520; --mark: #ff6b5e; --ok: #4cc283;
   --warn: #f0a640; --paper-bg: #0b0f14; color-scheme: dark;
 }
-html { box-sizing: border-box; height: 100%; }
+html { box-sizing: border-box; height: 100%; touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 *, *::before, *::after { box-sizing: inherit; }
-body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; -webkit-tap-highlight-color: transparent; }
+body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 button, input, textarea, select { font: inherit; color: inherit; }
+/* 아이패드 사파리는 16px보다 작은 입력칸을 누르면 화면 전체를 확대함 */
+input, textarea, select { font-size: 16px; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
@@ -76,7 +78,15 @@ button { cursor: pointer; }
 .intro .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .sec-title { font-size: 13px; font-weight: 700; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
 .plist { display: grid; gap: 8px; }
-.prow { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; text-align: left; width: 100%; min-width: 0; }
+.prow { display: flex; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; overflow: hidden; }
+.prow-open { flex: 1; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 14px 16px; background: transparent; border: 0; text-align: left; min-width: 0; }
+.prow .more { flex: none; width: 54px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 22px; line-height: 1; }
+.prow.trashed .prow-open { cursor: default; }
+.prow .acts { display: flex; gap: 6px; align-items: center; padding: 0 10px; border-left: 1px solid var(--line); }
+.trash { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.trash > summary { padding: 12px 16px; cursor: pointer; color: var(--muted); font-weight: 500; }
+.trash .plist { padding: 0 10px 10px; }
+.trash .prow { background: var(--surface-2); }
 .prow b { font-size: 16px; overflow-wrap: anywhere; }
 .prow .meta { color: var(--muted); font-size: 13px; grid-column: 1; }
 .prow .go { grid-row: 1 / span 2; grid-column: 2; color: var(--accent); font-weight: 500; }
@@ -137,8 +147,22 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .stepper button { width: 40px; min-height: var(--tap); border: 0; background: var(--surface-2); font-size: 18px; }
 .stepper input { width: 44px; text-align: center; border: 0; background: var(--surface); min-height: var(--tap); }
-.photo-wrap { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.photo-wrap { display: grid; grid-template-columns: auto 1fr auto auto; gap: 6px; }
+.photo-wrap .pm { width: 44px; padding: 0; font-size: 20px; }
 .sugg { font-size: 12px; padding: 0 10px; }
+.ph .big button.no-edit { font: inherit; border: 0; background: none; padding: 0; color: inherit; display: inline-flex; align-items: baseline; gap: 6px; }
+.ph .big button.no-edit small { font-size: 12px; font-weight: 500; color: var(--accent); }
+.dtabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); }
+.dtabs button { min-height: 40px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: none; font-weight: 500; color: var(--muted); margin-bottom: -1px; }
+.dtabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 700; }
+.dtabs button i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 4px; vertical-align: 2px; }
+.sel-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 28px; font-size: 13px; color: var(--muted); }
+.sel-line .tagx { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--ink); font-size: 13px; font-weight: 500; border: 0; }
+.sel-line .tagx span { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+.cur-photo { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.cur-photo .inp { background: var(--surface); }
+.chk { display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 4px; }
+.chk input { width: 22px; height: 22px; }
 .pfoot { display: flex; gap: 8px; margin-top: 4px; }
 .pfoot .btn { flex: 1; }
 .list { display: grid; gap: 4px; }
@@ -219,10 +243,20 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const OFFLINE_APP = !!window.DY_OFFLINE; // 홈 화면 앱(GitHub Pages) 빌드에서만 true
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = window.DY_WORKER_SRC || "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const DEFAULT_MEMBERS = ["벽체", "기둥", "보", "슬래브", "계단", "옹벽", "외벽", "지붕", "기타"];
-const DEFAULT_TYPES = ["균열", "망상균열", "누수", "백태", "박리", "박락", "철근노출", "재료분리", "도장박리", "들뜸", "파손", "기타"];
+const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "계단 슬래브", "기둥+조적벽체", "보+조적벽체", "보+기둥+조적벽체"];
+// 결함종류는 분류 탭으로 묶음. 균열 탭 안에서는 하나만 고름 (수직균열+수평균열 = 수직+수평균열이라 표기가 갈리지 않게)
+const DEFAULT_GROUPS = [
+  { name: "균열", items: ["수직균열", "수평균열", "경사균열", "수직+수평균열", "수직+경사균열", "수평+경사균열", "수직+수평+경사균열", "접합부 이격 균열", "망상균열"] },
+  { name: "누수", items: ["누수흔적"] },
+  { name: "미장", items: ["미장 들뜸", "미장 박리", "미장 박락"] },
+  { name: "도장", items: ["도장 열화", "도장 박리", "도장 박락"] },
+  { name: "콘크리트", items: ["콘크리트 박리", "콘크리트 박락", "철근노출"] },
+];
+const SINGLE_GROUP = "균열";
 const FLOORS = ["지하3층", "지하2층", "지하1층", "1층", "2층", "3층", "4층", "5층", "6층", "7층", "8층", "9층", "10층", "11층", "12층", "옥탑층", "지붕층"];
 const KIND_LABEL = { point: "점", arrow: "화살표", area: "영역" };
+const NOTE_LABEL = { text: "글씨 메모", pen: "펜 메모" };
+const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8" };
 
 /* ---------------- 기기 저장 (IndexedDB, 실패 시 메모리) ---------------- */
 const Local = (() => {
@@ -318,15 +352,16 @@ async function saveFile(filename, data) {
 /* ---------------- 상태 ---------------- */
 const S = {
   view: "home",
-  proj: null,        // {id,name,createdAt,updatedAt,files,floors,marks,prefs}
+  proj: null,        // {id,name,createdAt,updatedAt,files,floors,marks,notes,photoRanges,prefs,trashedAt}
   pages: [],         // [{fid,i,key,name}]
   cur: 0,
   pi: null,          // current page info {W,H,kind,page|img}
   tool: "point",
   sel: null,
   base: 1, z: 1, tx: 0, ty: 0,
-  lastInput: { member: "벽체", dtype: "균열" },
-  undo: [],
+  lastInput: { member: "", dtype: "" },
+  dtab: "균열",      // 결함종류 마지막으로 연 탭
+  undo: [], redo: [],
   sync: { state: "idle", at: 0, msg: "" },
   cloudList: null,
 };
@@ -350,9 +385,29 @@ function floorKey(f) {
   return 5000;
 }
 function members() { return (S.proj && S.proj.prefs && S.proj.prefs.members) || DEFAULT_MEMBERS; }
-function dtypes() { return (S.proj && S.proj.prefs && S.proj.prefs.types) || DEFAULT_TYPES; }
+function groups() { return (S.proj && S.proj.prefs && S.proj.prefs.typeGroups) || DEFAULT_GROUPS; }
 function sizeFactor() { return (S.proj && S.proj.prefs && S.proj.prefs.size) || 1; }
+// 결함종류는 "수직균열, 미장 박리"처럼 쉼표로 이어 저장
+function splitTypes(s) { return String(s || "").split(",").map((x) => x.trim()).filter(Boolean); }
+function joinTypes(arr) {
+  const order = new Map(); groups().forEach((g, gi) => g.items.forEach((it, ii) => order.set(it, gi * 1000 + ii)));
+  return [...new Set(arr)].sort((a, b) => (order.has(a) ? order.get(a) : 1e9) - (order.has(b) ? order.get(b) : 1e9)).join(", ");
+}
+function groupOf(t) { const g = groups().find((x) => x.items.includes(t)); return g ? g.name : ""; }
+function isCrackType(t) { return groupOf(t) === SINGLE_GROUP || /균열/.test(t); }
+function hasCrack(m) { return splitTypes(m.dtype).some(isCrackType); }
+function widthUnit(m) { return hasCrack(m) ? "mm" : (m.dtype ? "m" : ""); }
 function live() { return S.proj ? S.proj.marks.filter((m) => !m.deleted) : []; }
+function liveNotes() { return S.proj ? (S.proj.notes || []).filter((n) => !n.deleted) : []; }
+function notesOn(k) { return liveNotes().filter((n) => n.pageKey === k); }
+function photoRange(floor) { return (S.proj && S.proj.photoRanges && S.proj.photoRanges[floor]) || ""; }
+// 사진번호 숫자 부분만 d만큼 바꿈 (IMG_0123 → IMG_0124)
+function bumpPhoto(src, d) {
+  const m = String(src || "").match(/^(.*?)(\d+)(\D*)$/);
+  if (!m) return "";
+  const n = Math.max(0, Number(m[2]) + d);
+  return m[1] + String(n).padStart(m[2].length, "0") + m[3];
+}
 function curKey() { return S.pages[S.cur] ? S.pages[S.cur].key : null; }
 function floorOfPage(k) { return (S.proj && S.proj.floors[k]) || ""; }
 function floorOf(m) { return floorOfPage(m.pageKey); }
@@ -365,10 +420,7 @@ function nextNo(floor, exceptPage) {
 function nextPhoto(base) {
   const src = base || [...live()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((m) => m.photo).find((p) => p && /\d/.test(p));
   if (!src) return "";
-  const m = String(src).match(/^(.*?)(\d+)(\D*)$/);
-  if (!m) return "";
-  const n = String(Number(m[2]) + 1).padStart(m[2].length, "0");
-  return m[1] + n + m[3];
+  return bumpPhoto(src, 1);
 }
 function lastPhotoExcept(id) {
   return [...live()].filter((m) => m.id !== id && m.photo && /\d/.test(m.photo)).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((m) => m.photo)[0] || "";
@@ -386,7 +438,7 @@ function buildPages() {
   for (const f of S.proj.files) for (let i = 0; i < (f.pageCount || 1); i++) S.pages.push({ fid: f.fid, i, key: `${f.fid}_${i}`, name: f.name });
 }
 function metaOf(p) {
-  return { id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt, files: p.files.map((f) => ({ fid: f.fid, name: f.name, type: f.type, mime: f.mime || "", pageCount: f.pageCount || 1, assetId: f.assetId || null })), floors: p.floors || {}, prefs: p.prefs || {} };
+  return { id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt, files: p.files.map((f) => ({ fid: f.fid, name: f.name, type: f.type, mime: f.mime || "", pageCount: f.pageCount || 1, assetId: f.assetId || null })), floors: p.floors || {}, photoRanges: p.photoRanges || {}, prefs: p.prefs || {}, trashedAt: p.trashedAt || 0 };
 }
 
 /* ---------------- 저장 스케줄 ---------------- */
@@ -430,14 +482,17 @@ async function pushCloud() {
     await uploadMissingAssets(p);
     for (const pk of pages) {
       const ref = Cloud.db.doc(`projects/${p.id}/marks/${pk}`);
-      let remote = [];
+      let remote = [], remoteN = [];
       const snap = await ref.get();
-      if (snap.exists) remote = (snap.data().marks) || [];
+      if (snap.exists) { remote = (snap.data().marks) || []; remoteN = (snap.data().notes) || []; }
       const local = p.marks.filter((m) => m.pageKey === pk);
-      const merged = mergeMarks(remote, local);
+      const localN = (p.notes || []).filter((n) => n.pageKey === pk);
+      const merged = mergeMarks(remote, local), mergedN = mergeMarks(remoteN, localN);
       if (merged.length !== local.length || merged.some((m) => !local.includes(m))) gotRemote = true;
-      await ref.set({ marks: merged, updatedAt: now() });
+      if (mergedN.length !== localN.length || mergedN.some((n) => !localN.includes(n))) gotRemote = true;
+      await ref.set({ marks: merged, notes: mergedN, updatedAt: now() });
       p.marks = p.marks.filter((m) => m.pageKey !== pk).concat(merged);
+      p.notes = (p.notes || []).filter((n) => n.pageKey !== pk).concat(mergedN);
     }
     await Cloud.db.doc(`projects/${p.id}`).set(metaOf(p));
     S.sync.state = "ok"; S.sync.at = now(); S.sync.msg = "";
@@ -467,10 +522,10 @@ async function pullCloud(id, quiet) {
     if (!metaSnap.exists) return null;
     const meta = metaSnap.data();
     const ms = await Cloud.db.collection(`projects/${id}/marks`).get();
-    let remoteMarks = [];
-    ms.docs.forEach((d) => { const v = d.data(); if (v && Array.isArray(v.marks)) remoteMarks = remoteMarks.concat(v.marks); });
+    let remoteMarks = [], remoteNotes = [];
+    ms.docs.forEach((d) => { const v = d.data(); if (v && Array.isArray(v.marks)) remoteMarks = remoteMarks.concat(v.marks); if (v && Array.isArray(v.notes)) remoteNotes = remoteNotes.concat(v.notes); });
     let p = (S.proj && S.proj.id === id) ? S.proj : await Local.getProject(id);
-    if (!p) p = { id, name: meta.name, createdAt: meta.createdAt, updatedAt: meta.updatedAt, files: [], floors: {}, marks: [], prefs: meta.prefs || {} };
+    if (!p) p = { id, name: meta.name, createdAt: meta.createdAt, updatedAt: meta.updatedAt, files: [], floors: {}, marks: [], notes: [], photoRanges: {}, prefs: meta.prefs || {}, trashedAt: meta.trashedAt || 0 };
     // 파일 목록 합치기
     for (const rf of meta.files || []) {
       let lf = p.files.find((f) => f.fid === rf.fid);
@@ -482,13 +537,15 @@ async function pullCloud(id, quiet) {
     }
     const localNewer = (p.updatedAt || 0) >= (meta.updatedAt || 0);
     p.floors = localNewer ? { ...(meta.floors || {}), ...(p.floors || {}) } : { ...(p.floors || {}), ...(meta.floors || {}) };
-    if (!localNewer && meta.prefs) p.prefs = meta.prefs;
-    const before = p.marks.length;
+    p.photoRanges = localNewer ? { ...(meta.photoRanges || {}), ...(p.photoRanges || {}) } : { ...(p.photoRanges || {}), ...(meta.photoRanges || {}) };
+    if (!localNewer) { if (meta.prefs) p.prefs = meta.prefs; if (meta.name) p.name = meta.name; p.trashedAt = meta.trashedAt || 0; }
+    const before = p.marks.length + (p.notes || []).length;
     p.marks = mergeMarks(remoteMarks, p.marks);
+    p.notes = mergeMarks(remoteNotes, p.notes || []);
     await Local.putProject(p);
     if (S.proj && S.proj.id === id) {
       S.proj = p; buildPages(); renderBar(); renderOverlay(); renderPanel();
-      if (!quiet && p.marks.length !== before) toast("다른 기기에서 작업한 내용을 합쳤습니다");
+      if (!quiet && p.marks.length + p.notes.length !== before) toast("다른 기기에서 작업한 내용을 합쳤습니다");
     }
     return p;
   } catch (e) { if (!quiet) toast("클라우드에서 불러오지 못했습니다"); return null; }
@@ -571,11 +628,11 @@ async function addFiles(fileList) {
 /* ---------------- 화면 전환 ---------------- */
 async function openProject(p) {
   S.proj = p;
-  p.floors = p.floors || {}; p.marks = p.marks || []; p.prefs = p.prefs || {};
-  docCache.clear(); S.undo = []; S.sel = null; S.cur = 0;
+  p.floors = p.floors || {}; p.marks = p.marks || []; p.notes = p.notes || []; p.photoRanges = p.photoRanges || {}; p.prefs = p.prefs || {};
+  docCache.clear(); S.undo = []; S.redo = []; S.sel = null; S.cur = 0;
   buildPages();
   const lastMark = [...live()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
-  if (lastMark) S.lastInput = { member: lastMark.member, dtype: lastMark.dtype };
+  S.lastInput = lastMark ? { member: lastMark.member, dtype: lastMark.dtype } : { member: "", dtype: "" };
   S.view = "work"; $("#home").hidden = true; $("#work").hidden = false;
   try { localStorage.setItem("dy-last", p.id); } catch (e) {}
   renderBar();
@@ -598,7 +655,10 @@ async function renderHome() {
   const map = new Map();
   locals.forEach((p) => map.set(p.id, { p, local: true, cloud: false }));
   clouds.forEach((c) => { const e = map.get(c.id); if (e) e.cloud = true; else map.set(c.id, { p: c, local: false, cloud: true }); });
-  const rows = [...map.values()].sort((a, b) => (b.p.updatedAt || 0) - (a.p.updatedAt || 0));
+  const all = [...map.values()].sort((a, b) => (b.p.updatedAt || 0) - (a.p.updatedAt || 0));
+  const rows = all.filter((r) => !r.p.trashedAt);
+  const trashed = all.filter((r) => r.p.trashedAt).sort((a, b) => b.p.trashedAt - a.p.trashedAt);
+  const meta = (p) => `도면 ${(p.files || []).length}개${p.marks ? ` · 결함 ${p.marks.filter((m) => !m.deleted).length}개` : ""}`;
   const icon = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 20 L11 13"/><circle cx="15" cy="9" r="5"/><text x="15" y="12.3" font-size="8" fill="#fff" stroke="none" text-anchor="middle" font-family="sans-serif" font-weight="700">1</text></svg>`;
   $("#home").innerHTML = `
     <div class="home-inner">
@@ -614,13 +674,25 @@ async function renderHome() {
       <div>
         <h2 class="sec-title">조사 목록</h2>
         <div class="plist">${rows.length ? rows.map(({ p, local, cloud }) => `
-          <button class="prow" data-open="${esc(p.id)}">
-            <b>${esc(p.name)}${local ? "" : '<span class="tag">클라우드</span>'}${local && cloud ? '<span class="tag">백업됨</span>' : ""}</b>
-            <span class="meta">도면 ${(p.files || []).length}개${p.marks ? ` · 결함 ${p.marks.filter((m) => !m.deleted).length}개` : ""} · ${fmtDate(p.updatedAt)}</span>
-            <span class="go">열기</span>
-          </button>`).join("") : `<div class="empty">아직 조사가 없습니다. <b>새 조사 시작</b>을 눌러 도면 PDF나 사진을 올리면 여기에 쌓입니다.${Cloud.ready ? "" : "<br>클라우드 백업 목록을 불러오는 중…"}</div>`}
+          <div class="prow">
+            <button class="prow-open" data-open="${esc(p.id)}">
+              <b>${esc(p.name)}${local ? "" : '<span class="tag">클라우드</span>'}${local && cloud ? '<span class="tag">백업됨</span>' : ""}</b>
+              <span class="meta">${meta(p)} · ${fmtDate(p.updatedAt)}</span>
+              <span class="go">열기</span>
+            </button>
+            <button class="more" data-more="${esc(p.id)}" aria-label="이름 바꾸기 · 삭제">⋯</button>
+          </div>`).join("") : `<div class="empty">아직 조사가 없습니다. <b>새 조사 시작</b>을 눌러 도면 PDF나 사진을 올리면 여기에 쌓입니다.${Cloud.ready ? "" : "<br>클라우드 백업 목록을 불러오는 중…"}</div>`}
         </div>
       </div>
+      ${trashed.length ? `<details class="trash"${S.trashOpen ? " open" : ""}>
+        <summary>휴지통 ${trashed.length}개</summary>
+        <div class="plist">${trashed.map(({ p }) => `
+          <div class="prow trashed">
+            <div class="prow-open"><b>${esc(p.name)}</b><span class="meta">${meta(p)} · ${fmtDate(p.trashedAt)} 삭제</span></div>
+            <div class="acts"><button class="btn" data-restore="${esc(p.id)}">복원</button><button class="btn danger" data-purge="${esc(p.id)}">영구 삭제</button></div>
+          </div>`).join("")}
+        </div>
+      </details>` : ""}
       <div class="checklist">
         <b>현장 나가기 전에</b>
         ${OFFLINE_APP ? `<ol>
@@ -637,6 +709,63 @@ async function renderHome() {
   $("#b-new").onclick = () => newProjectModal();
   $("#b-sample").onclick = () => createSample();
   document.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openById(b.dataset.open)));
+  const nameOf = (id) => (all.find((r) => r.p.id === id) || { p: {} }).p.name || "";
+  document.querySelectorAll("[data-more]").forEach((b) => (b.onclick = () => projectMenu(b.dataset.more, nameOf(b.dataset.more))));
+  document.querySelectorAll("[data-restore]").forEach((b) => (b.onclick = async () => { await editProjectMeta(b.dataset.restore, (p) => { p.trashedAt = 0; }); toast("복원했습니다"); renderHome(); }));
+  document.querySelectorAll("[data-purge]").forEach((b) => (b.onclick = () => {
+    const id = b.dataset.purge, name = nameOf(id);
+    confirmModal("영구 삭제할까요?", `"${name}" 조사와 도면, 결함 표시가 이 기기에서 완전히 지워집니다. 되돌릴 수 없습니다.`, "영구 삭제", async () => { await purgeProject(id); toast("영구 삭제했습니다"); renderHome(); });
+  }));
+  const tr = document.querySelector(".trash"); if (tr) tr.ontoggle = () => (S.trashOpen = tr.open);
+}
+
+/* ---------------- 조사 이름 바꾸기 · 휴지통 ---------------- */
+function projectMenu(id, name) {
+  openModal(`
+    <h3>조사 관리</h3>
+    <div class="fld"><span class="lab">조사 이름</span><input class="inp" id="pm-name" value="${esc(name)}" autocomplete="off"></div>
+    <div class="sheet-foot" style="justify-content:space-between">
+      <button class="btn danger" id="pm-del">삭제</button>
+      <span style="display:flex;gap:8px"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="pm-ok">이름 저장</button></span>
+    </div>`);
+  $("#pm-ok").onclick = async () => {
+    const v = $("#pm-name").value.trim(); if (!v) { toast("이름을 입력하세요"); return; }
+    await editProjectMeta(id, (p) => { p.name = v; }); closeModal(); renderHome();
+  };
+  $("#pm-del").onclick = () => confirmModal("삭제할까요?", `"${name}" 조사를 휴지통으로 옮깁니다. 조사 목록 아래 휴지통에서 다시 복원할 수 있습니다.`, "삭제", async () => {
+    await editProjectMeta(id, (p) => { p.trashedAt = now(); }); toast("휴지통으로 옮겼습니다"); renderHome();
+  });
+}
+function confirmModal(title, msg, okLabel, cb) {
+  openModal(`<h3>${esc(title)}</h3><p style="margin:0;line-height:1.6">${esc(msg)}</p>
+    <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn danger armed" id="cf-ok">${esc(okLabel)}</button></div>`);
+  $("#cf-ok").onclick = async () => { closeModal(); await cb(); };
+}
+// 기기에 있으면 기기 것을, 클라우드에만 있으면 클라우드 것을 고침
+async function editProjectMeta(id, fn) {
+  const p = await Local.getProject(id);
+  if (p) {
+    fn(p); p.updatedAt = now(); await Local.putProject(p);
+    if (Cloud.db) { try { await Cloud.db.doc(`projects/${id}`).set(metaOf(p)); } catch (e) {} }
+    return;
+  }
+  if (!Cloud.db) return;
+  try {
+    const ref = Cloud.db.doc(`projects/${id}`); const snap = await ref.get();
+    if (!snap.exists) return;
+    const m = snap.data(); fn(m); m.updatedAt = now(); await ref.set(m);
+  } catch (e) { toast("클라우드에 반영하지 못했습니다"); }
+}
+async function purgeProject(id) {
+  const p = await Local.getProject(id);
+  if (p) { for (const f of p.files || []) await Local.delBlob(f.fid); await Local.delProject(id); }
+  if (Cloud.db) {
+    try {
+      const ms = await Cloud.db.collection(`projects/${id}/marks`).get();
+      for (const d of ms.docs) { const r = Cloud.db.doc(`projects/${id}/marks/${d.id}`); if (typeof r.delete === "function") await r.delete(); }
+      const r = Cloud.db.doc(`projects/${id}`); if (typeof r.delete === "function") await r.delete();
+    } catch (e) {}
+  }
 }
 
 async function openById(id) {
@@ -697,7 +826,10 @@ const ICON = {
   point: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="15" r="3" fill="currentColor"/><circle cx="16" cy="8" r="4.5"/></svg>`,
   arrow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="17" cy="7" r="4"/><path d="M14 10L5 19"/><path d="M5 19l1-5M5 19l5-1"/></svg>`,
   area: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="4" y="6" width="16" height="13" rx="1"/></svg>`,
+  text: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>`,
+  pen: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>`,
   undo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>`,
+  redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg>`,
   fit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`,
 };
 function renderBar() {
@@ -718,7 +850,11 @@ function renderBar() {
     <span class="tools" role="group" aria-label="표시 도구">
       ${["pan", "point", "arrow", "area"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${t === "pan" ? "이동" : KIND_LABEL[t]}</span></button>`).join("")}
     </span>
+    <span class="tools" role="group" aria-label="메모 도구">
+      ${["text", "pen"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}" style="color:${S.tool === t ? "" : COL.note}">${ICON[t]}<span>${t === "text" ? "글씨" : "펜"}</span></button>`).join("")}
+    </span>
     <button class="btn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
+    <button class="btn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
     <button class="btn" id="t-fit" aria-label="화면 맞춤">${ICON.fit}</button>
     <span class="grow"></span>
     <span class="sync" id="sync"></span>
@@ -729,6 +865,7 @@ function renderBar() {
   $("#t-pages").onclick = pagesModal;
   $("#t-floor").onclick = () => floorModal(curKey());
   $("#t-undo").onclick = undo;
+  $("#t-redo").onclick = redo;
   $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
   document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; renderBar(); showHint(); }));
@@ -736,7 +873,7 @@ function renderBar() {
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", text: "메모를 넣을 곳을 누르세요 (파란색, 번호 없음)", pen: "자유롭게 쓰거나 그리세요 (파란색, 번호 없음)" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -811,10 +948,22 @@ window.addEventListener("resize", () => { if (S.view === "work" && S.pi) { fit()
 /* ---------------- 표시 그리기 (SVG) ---------------- */
 function unitFor(W, H) { return Math.max(W, H) / 80 * sizeFactor(); }
 function U() { return S.pi ? unitFor(S.pi.W, S.pi.H) : 10; }
+// 번호 원 위치: 화살표는 끝점, 점·영역은 옮긴 자리(m.lab)가 있으면 그곳
 function labelPos(m, u) {
-  if (m.type === "point") return [m.pts[0][0] + u * 1.7, m.pts[0][1] - u * 1.7];
   if (m.type === "arrow") return m.pts[1];
-  const [a, b] = m.pts; return [Math.min(a[0], b[0]), Math.min(a[1], b[1])];
+  if (m.lab) return m.lab;
+  if (m.type === "point") return [m.pts[0][0] + u * 1.7, m.pts[0][1] - u * 1.7];
+  const [a, b] = m.pts; return [Math.min(a[0], b[0]) - u * 0.75, Math.min(a[1], b[1]) - u * 0.75];
+}
+function areaBox(m) {
+  const [a, b] = m.pts;
+  return { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), w: Math.abs(a[0] - b[0]), h: Math.abs(a[1] - b[1]) };
+}
+// 선택한 표시에 나오는 손잡이: 점·화살표는 결함 위치, 영역은 네 모서리
+function handlesOf(m) {
+  if (m.type !== "area") return [{ part: "p0", at: m.pts[0] }];
+  const { x, y, w, h } = areaBox(m);
+  return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map((at, i) => ({ part: "c" + i, at }));
 }
 function geomSVG(m, col, u) {
   const r = u * 1.05, sw = u * 0.17;
@@ -823,7 +972,7 @@ function geomSVG(m, col, u) {
   if (m.type === "point") {
     const [x, y] = m.pts[0];
     const dx = lx - x, dy = ly - y, d = Math.hypot(dx, dy) || 1;
-    g += `<line x1="${x}" y1="${y}" x2="${lx - dx / d * r}" y2="${ly - dy / d * r}" stroke="${col}" stroke-width="${sw}"/>`;
+    if (d > r) g += `<line x1="${x}" y1="${y}" x2="${lx - dx / d * r}" y2="${ly - dy / d * r}" stroke="${col}" stroke-width="${sw}"/>`;
     g += `<circle cx="${x}" cy="${y}" r="${u * 0.38}" fill="${col}"/>`;
   } else if (m.type === "arrow") {
     const [x, y] = m.pts[0];
@@ -833,8 +982,7 @@ function geomSVG(m, col, u) {
     g += `<line x1="${lx + ux * r}" y1="${ly + uy * r}" x2="${bx}" y2="${by}" stroke="${col}" stroke-width="${sw}"/>`;
     g += `<polygon points="${x},${y} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${col}"/>`;
   } else {
-    const [a, b] = m.pts;
-    const x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]), w = Math.abs(a[0] - b[0]), h = Math.abs(a[1] - b[1]);
+    const { x, y, w, h } = areaBox(m);
     g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${col}" fill-opacity="0.12" stroke="${col}" stroke-width="${sw}" stroke-dasharray="${u * 0.6} ${u * 0.35}"/>`;
   }
   return g;
@@ -846,18 +994,64 @@ function labelSVG(m, col, u) {
   const fs = u * (t.length >= 3 ? 0.8 : t.length === 2 ? 0.95 : 1.1);
   return `<g><circle cx="${lx}" cy="${ly}" r="${r}" fill="#fff" stroke="${col}" stroke-width="${sw}"/><text x="${lx}" y="${ly}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" fill="${col}" text-anchor="middle" dominant-baseline="central">${esc(t)}</text></g>`;
 }
+function handleSVG(at) {
+  const k = S.base * S.z;
+  return `<circle cx="${at[0]}" cy="${at[1]}" r="${11 / k}" fill="#fff" fill-opacity="0.85" stroke="${COL.sel}" stroke-width="${3 / k}"/>`;
+}
+
+/* 메모 (파란색, 번호 없음): 글씨 {kind:"text", at, text, scale} / 펜 {kind:"pen", pts} */
+const NOTE_FONT = `"Apple SD Gothic Neo", "Malgun Gothic", "IBM Plex Sans KR", sans-serif`;
+function noteFs(n, u) { return u * 1.15 * (n.scale || 1); }
+function textEm(s) { let w = 0; for (const ch of s) w += /[ᄀ-ᇿ　-鿿가-힯＀-￯]/.test(ch) ? 1 : 0.6; return w; }
+function noteLines(n) { return String(n.text || "").split("\n"); }
+function noteBox(n, u) {
+  if (n.kind === "pen") {
+    const xs = n.pts.map((q) => q[0]), ys = n.pts.map((q) => q[1]);
+    const x = Math.min(...xs), y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
+  const fs = noteFs(n, u), ls = noteLines(n);
+  return { x: n.at[0], y: n.at[1], w: Math.max(1, ...ls.map(textEm)) * fs, h: ls.length * fs * 1.3 };
+}
+function penWidth(u) { return u * 0.16; }
+function noteSVG(n, col, u) {
+  if (n.kind === "pen") {
+    if (!n.pts.length) return "";
+    const d = n.pts.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" ");
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${penWidth(u)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  const fs = noteFs(n, u);
+  return `<text font-size="${fs}" font-weight="500" font-family='${NOTE_FONT}' fill="${col}" stroke="#fff" stroke-width="${fs * 0.2}" paint-order="stroke" stroke-linejoin="round">${noteLines(n).map((l, i) => `<tspan x="${n.at[0]}" y="${n.at[1] + fs * (1.3 * i + 1)}">${esc(l) || " "}</tspan>`).join("")}</text>`;
+}
+// 층 현황사진 범위: 도면 왼쪽 위
+function photoLabelText(pageKey) { const r = photoRange(floorOfPage(pageKey)); return r ? `현황사진 ${r}` : ""; }
+function photoLabelSVG(txt, u) {
+  const fs = u * 1.2, pad = fs * 0.4, w = textEm(txt) * fs + pad * 2, h = fs * 1.6;
+  return `<g><rect x="${u}" y="${u}" width="${w}" height="${h}" fill="#fff" stroke="#16202b" stroke-width="${u * 0.1}"/><text x="${u + pad}" y="${u + h / 2}" font-size="${fs}" font-weight="700" font-family='${NOTE_FONT}' fill="#16202b" dominant-baseline="central">${esc(txt)}</text></g>`;
+}
+
 let draft = null; // 그리는 중인 표시
 function renderOverlay() {
   const ov = $("#ov");
   if (!S.pi) { ov.innerHTML = ""; return; }
   ov.setAttribute("viewBox", `0 0 ${S.pi.W} ${S.pi.H}`);
   ov.setAttribute("preserveAspectRatio", "none");
-  const u = U();
-  const ms = marksOn(curKey());
+  const u = U(), k = curKey();
+  const ms = marksOn(k), ns = notesOn(k);
   let out = "";
-  for (const m of ms) { const col = m.id === S.sel ? "#1d5bd8" : "#d6332a"; out += geomSVG(m, col, u); }
-  for (const m of ms) { const col = m.id === S.sel ? "#1d5bd8" : "#d6332a"; out += labelSVG(m, col, u); }
-  if (draft) { out += geomSVG(draft, "#1d5bd8", u); out += labelSVG({ ...draft, no: "?" }, "#1d5bd8", u); }
+  const pl = photoLabelText(k); if (pl) out += photoLabelSVG(pl, u);
+  for (const n of ns) {
+    out += noteSVG(n, COL.note, u);
+    if (n.id === S.sel) { const b = noteBox(n, u), pd = u * 0.4; out += `<rect x="${b.x - pd}" y="${b.y - pd}" width="${b.w + pd * 2}" height="${b.h + pd * 2}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
+  }
+  const col = (m) => (m.id === S.sel ? COL.sel : COL.mark);
+  for (const m of ms) out += geomSVG(m, col(m), u);
+  for (const m of ms) out += labelSVG(m, col(m), u);
+  const sm = selMark(); if (sm && sm.pageKey === k) for (const h of handlesOf(sm)) out += handleSVG(h.at);
+  if (draft) {
+    if (draft.type === "pen") out += noteSVG({ kind: "pen", pts: draft.pts }, COL.note, u);
+    else { out += geomSVG(draft, COL.sel, u); out += labelSVG({ ...draft, no: "?" }, COL.sel, u); }
+  }
   ov.innerHTML = out;
 }
 
@@ -865,48 +1059,92 @@ function renderOverlay() {
 const vp = $("#vp");
 const ptrs = new Map();
 let gest = null, penSeen = false;
+const MARK_TOOLS = ["point", "arrow", "area"];
 function toPage(cx, cy) { const r = vp.getBoundingClientRect(); return [(cx - r.left - S.tx) / (S.base * S.z), (cy - r.top - S.ty) / (S.base * S.z)]; }
 function screenDist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]) * S.base * S.z; }
-function hitMark(p) {
-  const u = U(); const tol = Math.max(u * 1.4, 24 / (S.base * S.z));
-  let best = null, bd = Infinity;
-  for (const m of marksOn(curKey())) {
-    const lp = labelPos(m, u);
-    const d = Math.hypot(lp[0] - p[0], lp[1] - p[1]);
-    if (d < tol && d < bd) { best = m; bd = d; }
-    if (m.type === "point") { const d2 = Math.hypot(m.pts[0][0] - p[0], m.pts[0][1] - p[1]); if (d2 < tol * 0.8 && d2 < bd) { best = m; bd = d2; } }
-  }
-  return best;
+function segDist(p, a, b) {
+  const vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy;
+  const t = l2 ? clamp(((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / l2, 0, 1) : 0;
+  return Math.hypot(p[0] - a[0] - t * vx, p[1] - a[1] - t * vy);
 }
+// 누른 곳에 잡을 것이 있는지: 선택한 표시의 손잡이 → 번호 원 → 결함 위치 → 선택한 영역 안 → 메모
+function hitTest(p) {
+  const u = U(), tol = 22 / (S.base * S.z);
+  const sm = selMark();
+  const ms = marksOn(curKey());
+  let best = null, bd = Infinity;
+  // 손잡이와 번호 원이 겹치면 더 가까운 쪽
+  if (sm && sm.pageKey === curKey()) {
+    for (const h of handlesOf(sm)) { const d = Math.hypot(h.at[0] - p[0], h.at[1] - p[1]); if (d < tol && d < bd) { best = { kind: "mark", id: sm.id, part: h.part }; bd = d; } }
+  }
+  for (const m of ms) {
+    const lp = labelPos(m, u), d = Math.hypot(lp[0] - p[0], lp[1] - p[1]);
+    if (d < Math.max(u * 1.1, tol) && d < bd) { best = { kind: "mark", id: m.id, part: "label" }; bd = d; }
+  }
+  if (best) return best;
+  for (const m of ms) {
+    if (m.type === "area") continue;
+    const d = Math.hypot(m.pts[0][0] - p[0], m.pts[0][1] - p[1]);
+    if (d < Math.max(u * 0.8, tol * 0.8) && d < bd) { best = { kind: "mark", id: m.id, part: "p0" }; bd = d; }
+  }
+  if (best) return best;
+  if (sm && sm.type === "area" && sm.pageKey === curKey()) {
+    const b = areaBox(sm); if (p[0] >= b.x && p[0] <= b.x + b.w && p[1] >= b.y && p[1] <= b.y + b.h) return { kind: "mark", id: sm.id, part: "body" };
+  }
+  const ns = notesOn(curKey());
+  for (let i = ns.length - 1; i >= 0; i--) {
+    const n = ns[i];
+    if (n.kind === "text") {
+      const b = noteBox(n, u), pd = tol * 0.5;
+      if (p[0] >= b.x - pd && p[0] <= b.x + b.w + pd && p[1] >= b.y - pd && p[1] <= b.y + b.h + pd) return { kind: "note", id: n.id };
+    } else {
+      for (let j = 1; j < n.pts.length; j++) if (segDist(p, n.pts[j - 1], n.pts[j]) < Math.max(tol * 0.6, penWidth(u))) return { kind: "note", id: n.id };
+      if (n.pts.length === 1 && Math.hypot(n.pts[0][0] - p[0], n.pts[0][1] - p[1]) < tol * 0.6) return { kind: "note", id: n.id };
+    }
+  }
+  return null;
+}
+function findItem(id) { return S.proj.marks.find((x) => x.id === id) || (S.proj.notes || []).find((x) => x.id === id); }
+function geomOf(o) { return clone({ pts: o.pts, lab: o.lab, at: o.at }); }
+function setGeom(o, g) { if (g.pts) o.pts = g.pts; if (g.at) o.at = g.at; if (g.lab) o.lab = g.lab; else delete o.lab; }
 function startPinch() {
   const [a, b] = [...ptrs.values()];
   gest = { kind: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, m0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, z0: S.z, tx0: S.tx, ty0: S.ty };
 }
+function selectItem(id) { if (S.sel !== id) { S.sel = id; renderOverlay(); renderPanel(); } }
 vp.addEventListener("pointerdown", (e) => {
   if (!S.pi) return;
   try { vp.setPointerCapture(e.pointerId); } catch (_) {}
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
   if (e.pointerType === "pen") penSeen = true;
   if (ptrs.size === 2) {
-    if (gest && gest.kind === "move" && gest.moved) { restoreMove(); }
+    if (gest && gest.kind === "move" && gest.moved) restoreMove();
     draft = null; startPinch(); renderOverlay(); return;
   }
   if (ptrs.size > 2) return;
   const p = toPage(e.clientX, e.clientY);
-  const hit = hitMark(p);
-  if (hit) {
-    gest = { kind: "move", id: hit.id, start: p, orig: clone(hit.pts), moved: false };
-    if (S.sel !== hit.id) { S.sel = hit.id; renderOverlay(); renderPanel(); }
+  const fingerOnly = penSeen && e.pointerType === "touch"; // 펜을 쓰면 손가락은 이동·확대만
+  const panG = (extra) => ({ kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false, ...extra });
+  if (S.tool === "pen" && !fingerOnly) {
+    gest = { kind: "pen", pts: [p], start: p };
+    draft = { type: "pen", pts: gest.pts };
     return;
   }
-  const canDraw = S.tool !== "pan" && !(penSeen && e.pointerType === "touch");
-  if (canDraw) {
+  const hit = hitTest(p);
+  if (hit) {
+    const it = findItem(hit.id);
+    gest = { kind: "move", target: hit.kind, id: hit.id, part: hit.part, start: p, orig: geomOf(it), origLab: hit.kind === "mark" ? labelPos(it, U()) : null, snap: snapshot(), moved: false };
+    selectItem(hit.id);
+    return;
+  }
+  if (S.tool === "text" && !fingerOnly) { gest = panG({ tapText: p }); return; }
+  if (MARK_TOOLS.includes(S.tool) && !fingerOnly) {
     if (!floorOfPage(curKey())) { ptrs.clear(); floorModal(curKey()); return; }
     gest = { kind: "draw", tool: S.tool, start: p, cur: p };
     draft = { type: S.tool, pts: S.tool === "point" ? [p] : [p, p] };
     renderOverlay();
   } else {
-    gest = { kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false };
+    gest = panG();
   }
 });
 vp.addEventListener("pointermove", (e) => {
@@ -921,14 +1159,18 @@ vp.addEventListener("pointermove", (e) => {
     const py = (gest.m0.y - r.top - gest.ty0) / (S.base * gest.z0);
     const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
     S.z = z; S.tx = mx - px * S.base * z; S.ty = my - py * S.base * z;
-    applyTransform(); return;
+    applyTransform(); renderOverlay(); return;
   }
   if (gest.kind === "pan") {
     const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
-    if (Math.abs(dx) + Math.abs(dy) > 4) gest.moved = true;
+    if (Math.abs(dx) + Math.abs(dy) > 6) gest.moved = true;
     S.tx = gest.tx0 + dx; S.ty = gest.ty0 + dy; applyTransform(); return;
   }
   const p = toPage(e.clientX, e.clientY);
+  if (gest.kind === "pen") {
+    if (screenDist(p, gest.pts[gest.pts.length - 1]) >= 2) { gest.pts.push(p); renderOverlay(); }
+    return;
+  }
   if (gest.kind === "draw") {
     gest.cur = p;
     if (gest.tool === "point") draft.pts = [p]; else draft.pts = [gest.start, p];
@@ -937,14 +1179,29 @@ vp.addEventListener("pointermove", (e) => {
   if (gest.kind === "move") {
     if (!gest.moved && screenDist(p, gest.start) < 6) return;
     gest.moved = true;
-    const m = S.proj.marks.find((x) => x.id === gest.id); if (!m) return;
+    const it = findItem(gest.id); if (!it) return;
     const dx = p[0] - gest.start[0], dy = p[1] - gest.start[1];
-    if (m.type === "arrow") m.pts = [gest.orig[0], [gest.orig[1][0] + dx, gest.orig[1][1] + dy]];
-    else m.pts = gest.orig.map((q) => [q[0] + dx, q[1] + dy]);
+    const add = (q) => [q[0] + dx, q[1] + dy];
+    const o = gest.orig;
+    if (gest.target === "note") {
+      if (it.kind === "text") it.at = add(o.at); else it.pts = o.pts.map(add);
+    } else if (gest.part === "label") {
+      if (it.type === "arrow") it.pts = [o.pts[0], add(o.pts[1])];
+      else it.lab = add(gest.origLab);
+    } else if (gest.part === "p0") {
+      it.pts = [add(o.pts[0]), ...o.pts.slice(1)];
+    } else if (gest.part === "body") {
+      it.pts = o.pts.map(add); if (o.lab) it.lab = add(o.lab);
+    } else if (gest.part[0] === "c") {
+      // 모서리 끌기: 반대쪽 모서리는 그대로
+      const b = areaBox({ pts: o.pts }), i = Number(gest.part[1]);
+      const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]];
+      it.pts = [corners[3 - i], add(corners[i])];
+    }
     renderOverlay();
   }
 });
-function restoreMove() { const m = S.proj.marks.find((x) => x.id === gest.id); if (m) m.pts = gest.orig; }
+function restoreMove() { const it = findItem(gest.id); if (it) setGeom(it, gest.orig); }
 function endPointer(e) {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
@@ -959,11 +1216,19 @@ function endPointer(e) {
   }
   const g = gest; gest = null;
   if (e.type === "pointercancel") { if (g.kind === "move" && g.moved) restoreMove(); draft = null; renderOverlay(); return; }
-  if (g.kind === "pan") { if (!g.moved && S.sel) { S.sel = null; renderOverlay(); renderPanel(); } return; }
+  if (g.kind === "pan") {
+    if (g.moved) return;
+    if (g.tapText) { if (S.sel) { S.sel = null; renderOverlay(); renderPanel(); } textModal(null, g.tapText); return; }
+    if (S.sel) { S.sel = null; renderOverlay(); renderPanel(); }
+    return;
+  }
+  if (g.kind === "pen") { finishPen(g); return; }
   if (g.kind === "draw") { finishDraw(g); return; }
   if (g.kind === "move" && g.moved) {
-    const m = S.proj.marks.find((x) => x.id === g.id);
-    if (m) { const now_ = clone(m.pts); m.pts = g.orig; pushUndo(); m.pts = now_; m.updatedAt = now(); touch(m.pageKey); }
+    const it = findItem(g.id);
+    if (it) {
+      pushUndo(g.snap); it.updatedAt = now(); touch(it.pageKey);
+    }
     renderOverlay();
   }
 }
@@ -975,7 +1240,7 @@ vp.addEventListener("wheel", (e) => {
   const z = clamp(S.z * Math.exp(-e.deltaY * 0.0015), 0.5, 14);
   const px = (e.clientX - r.left - S.tx) / (S.base * S.z), py = (e.clientY - r.top - S.ty) / (S.base * S.z);
   S.z = z; S.tx = e.clientX - r.left - px * S.base * z; S.ty = e.clientY - r.top - py * S.base * z;
-  applyTransform(); scheduleRender();
+  applyTransform(); renderOverlay(); scheduleRender();
 }, { passive: false });
 
 function finishDraw(g) {
@@ -997,99 +1262,240 @@ function finishDraw(g) {
   S.proj.marks.push(m);
   S.sel = m.id;
   touch(k);
-  renderOverlay(); renderPanel(); renderBar();
+  renderOverlay(); renderPanel();
+}
+function finishPen(g) {
+  draft = null;
+  // 거의 안 움직였으면 그리기가 아니라 누르기: 메모·표시 선택
+  let len = 0; for (let i = 1; i < g.pts.length; i++) len += screenDist(g.pts[i - 1], g.pts[i]);
+  if (len < 6) {
+    const hit = hitTest(g.start);
+    if (hit) selectItem(hit.id); else if (S.sel) { S.sel = null; renderPanel(); }
+    renderOverlay(); return;
+  }
+  const k = curKey();
+  pushUndo();
+  const r1 = (v) => Math.round(v * 10) / 10;
+  S.proj.notes.push({ id: uid(), pageKey: k, kind: "pen", pts: g.pts.map((q) => [r1(q[0]), r1(q[1])]), createdAt: now(), updatedAt: now() });
+  touch(k); renderOverlay();
+}
+function textModal(n, at) {
+  openModal(`
+    <h3>${n ? "글씨 메모 고치기" : "글씨 메모"}</h3>
+    <p class="sub">도면에 파란색으로 들어갑니다. 번호가 붙지 않고 엑셀에도 들어가지 않습니다.</p>
+    <textarea class="inp" id="tx-in" rows="3" placeholder="예: 천장 마감 해체 후 재확인">${n ? esc(n.text) : ""}</textarea>
+    <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="tx-ok">${n ? "저장" : "넣기"}</button></div>`);
+  const i = $("#tx-in"); setTimeout(() => i.focus(), 50);
+  $("#tx-ok").onclick = () => {
+    const v = i.value.replace(/\s+$/, ""); if (!v.trim()) { closeModal(); return; }
+    pushUndo();
+    if (n) { n.text = v; n.updatedAt = now(); touch(n.pageKey); }
+    else { const k = curKey(); n = { id: uid(), pageKey: k, kind: "text", at, text: v, scale: 1, createdAt: now(), updatedAt: now() }; S.proj.notes.push(n); touch(k); }
+    S.sel = n.id; closeModal(); renderOverlay(); renderPanel();
+  };
 }
 
-/* ---------------- 되돌리기 ---------------- */
-function pushUndo() { S.undo.push(JSON.stringify(S.proj.marks)); if (S.undo.length > 40) S.undo.shift(); }
-function undo() {
-  if (!S.undo.length) return;
-  const prev = JSON.parse(S.undo.pop());
+/* ---------------- 되돌리기 / 앞으로 돌리기 ---------------- */
+function snapshot() { return JSON.stringify({ marks: S.proj.marks, notes: S.proj.notes || [] }); }
+function updateUndoBtns() {
+  const u = $("#t-undo"), r = $("#t-redo");
+  if (u) u.disabled = !S.undo.length;
+  if (r) r.disabled = !S.redo.length;
+}
+function pushUndo(snap) { S.undo.push(snap || snapshot()); if (S.undo.length > 60) S.undo.shift(); S.redo = []; updateUndoBtns(); }
+// 지난 상태로 맞추되, 지운 것은 지움 표시로 남겨야 합치기에서 되살아나지 않음
+function restoreList(cur, prev, t, pages) {
   const prevMap = new Map(prev.map((m) => [m.id, m]));
-  const t = now(); const pages = new Set();
   const out = [];
-  for (const m of S.proj.marks) {
+  for (const m of cur) {
     const pm = prevMap.get(m.id);
-    if (!pm) { out.push({ ...m, deleted: true, updatedAt: t }); pages.add(m.pageKey); }
+    if (!pm) { out.push(m.deleted ? m : { ...m, deleted: true, updatedAt: t }); if (!m.deleted) pages.add(m.pageKey); }
     else { if (JSON.stringify(pm) !== JSON.stringify(m)) { out.push({ ...pm, updatedAt: t }); pages.add(m.pageKey); } else out.push(m); prevMap.delete(m.id); }
   }
   prevMap.forEach((pm) => { out.push({ ...pm, updatedAt: t }); pages.add(pm.pageKey); });
-  S.proj.marks = out;
-  if (S.sel && !live().some((m) => m.id === S.sel)) S.sel = null;
-  pages.forEach((k) => touch(k));
-  renderOverlay(); renderPanel(); renderBar();
+  return out;
 }
+function applySnap(str) {
+  const s = JSON.parse(str); const t = now(); const pages = new Set();
+  S.proj.marks = restoreList(S.proj.marks, s.marks, t, pages);
+  S.proj.notes = restoreList(S.proj.notes || [], s.notes || [], t, pages);
+  if (S.sel) { const it = findItem(S.sel); if (!it || it.deleted) S.sel = null; }
+  pages.forEach((k) => touch(k));
+  renderOverlay(); renderPanel(); updateUndoBtns();
+}
+function undo() { if (!S.undo.length) return; S.redo.push(snapshot()); applySnap(S.undo.pop()); }
+function redo() { if (!S.redo.length) return; S.undo.push(snapshot()); applySnap(S.redo.pop()); }
 
 /* ---------------- 오른쪽 입력창 ---------------- */
 function selMark() { return S.sel ? S.proj.marks.find((m) => m.id === S.sel && !m.deleted) : null; }
+function selNote() { return S.sel ? (S.proj.notes || []).find((n) => n.id === S.sel && !n.deleted) : null; }
 function chipsHTML(field, list, val) {
   const all = [...list]; if (val && !all.includes(val)) all.push(val);
   return `<div class="chips" data-field="${field}">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${v === val}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="${field}">+ 직접</button></div>`;
 }
+function dtypeHTML(m) {
+  const gs = groups(), sel = splitTypes(m.dtype);
+  if (!gs.some((g) => g.name === S.dtab)) S.dtab = gs[0] ? gs[0].name : "";
+  const g = gs.find((x) => x.name === S.dtab) || { items: [] };
+  return `
+    <div class="dtabs" role="tablist">${gs.map((x) => `<button role="tab" data-tab="${esc(x.name)}" aria-selected="${x.name === S.dtab}">${esc(x.name)}${x.items.some((it) => sel.includes(it)) ? "<i></i>" : ""}</button>`).join("")}</div>
+    <div class="chips" data-dt>${g.items.map((v) => `<button class="chip" data-t="${esc(v)}" aria-pressed="${sel.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-tadd>+ 직접</button></div>
+    <div class="sel-line">${sel.length ? `선택:` + sel.map((v) => `<button class="tagx" data-tdel="${esc(v)}" aria-label="${esc(v)} 빼기">${esc(v)}<span>×</span></button>`).join("") : "선택 없음 · 여러 개 고를 수 있습니다"}</div>`;
+}
 function renderPanel() {
   const P = $("#panel");
   if (!S.proj) return;
+  const n = selNote();
+  if (n) { renderNotePanel(P, n); return; }
   const m = selMark();
   if (!m) { renderPageSummary(P); return; }
   const floor = floorOf(m);
   const sugg = nextPhoto(lastPhotoExcept(m.id));
+  const wu = widthUnit(m);
   P.innerHTML = `
     <div class="ph">
-      <div class="t"><span class="eyebrow">${esc(floor || "층 미지정")} · ${KIND_LABEL[m.type]}</span><span class="big">결함 <span class="num">${esc(m.no)}</span></span></div>
+      <div class="t"><span class="eyebrow">${esc(floor || "층 미지정")} · ${KIND_LABEL[m.type]}</span><span class="big"><button class="no-edit" id="f-no">결함 <span class="num">${esc(m.no)}</span><small>번호 바꾸기</small></button></span></div>
       <button class="btn danger" id="f-del">삭제</button>
     </div>
     <div class="fld"><span class="lab">부재</span>${chipsHTML("member", members(), m.member)}</div>
-    <div class="fld"><span class="lab">결함종류</span>${chipsHTML("dtype", dtypes(), m.dtype)}</div>
+    <div class="fld"><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
     <div class="row2">
-      <div class="fld"><span class="lab">폭</span><input class="inp num" id="f-w" inputmode="decimal" autocomplete="off" value="${esc(m.w)}" placeholder="예: 0.3"></div>
+      <div class="fld"><span class="lab">폭${wu ? `(${wu})` : ""}</span><input class="inp num" id="f-w" inputmode="decimal" autocomplete="off" value="${esc(m.w)}" placeholder="${wu === "m" ? "예: 0.5" : "예: 0.3"}"></div>
       <span class="x">×</span>
-      <div class="fld"><span class="lab">길이</span><input class="inp num" id="f-l" inputmode="decimal" autocomplete="off" value="${esc(m.l)}" placeholder="예: 1500"></div>
+      <div class="fld"><span class="lab">길이(m)</span><input class="inp num" id="f-l" inputmode="decimal" autocomplete="off" value="${esc(m.l)}" placeholder="예: 1.5"></div>
     </div>
-    <div class="row-photo">
-      <div class="fld"><span class="lab">개수</span>
-        <span class="stepper"><button id="f-cm" aria-label="개수 줄이기">−</button><input class="num" id="f-count" inputmode="numeric" value="${esc(m.count)}"><button id="f-cp" aria-label="개수 늘리기">+</button></span>
-      </div>
-      <div class="fld"><span class="lab">사진번호</span>
-        <div class="photo-wrap"><input class="inp num" id="f-photo" autocomplete="off" autocapitalize="characters" value="${esc(m.photo)}" placeholder="예: IMG_0123">${sugg ? `<button class="btn sugg" id="f-sugg">${esc(sugg)}</button>` : ""}</div>
+    <div class="fld"><span class="lab">개수</span>
+      <span class="stepper"><button id="f-cm" aria-label="개수 줄이기">−</button><input class="num" id="f-count" inputmode="numeric" value="${esc(m.count)}"><button id="f-cp" aria-label="개수 늘리기">+</button></span>
+    </div>
+    <div class="fld"><span class="lab">사진번호</span>
+      <div class="photo-wrap">
+        <button class="btn pm" id="f-pm" aria-label="사진번호 하나 내리기">−</button>
+        <input class="inp num" id="f-photo" autocomplete="off" autocapitalize="characters" value="${esc(m.photo)}" placeholder="예: IMG_0123">
+        <button class="btn pm" id="f-pp" aria-label="사진번호 하나 올리기">+</button>
+        ${sugg ? `<button class="btn sugg" id="f-sugg">${esc(sugg)}</button>` : ""}
       </div>
     </div>
     <div class="fld"><span class="lab">메모</span><textarea class="inp" id="f-memo" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
     <div class="pfoot"><button class="btn primary" id="f-done">완료</button></div>`;
   const upd = (field, v, rerender) => {
     const mm = selMark(); if (!mm) return;
-    mm[field] = v; mm.updatedAt = now();
+    mm[field] = v; mm.updatedAt = now(); S.redo = []; updateUndoBtns();
     if (field === "member" || field === "dtype") S.lastInput[field] = v;
     touch(mm.pageKey);
     if (rerender) renderPanel();
   };
-  P.querySelectorAll(".chips").forEach((box) => {
-    const field = box.dataset.field;
-    box.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => upd(field, b.dataset.v, true)));
-    box.querySelector("[data-add]").onclick = () => customModal(field === "member" ? "부재 직접 입력" : "결함종류 직접 입력", (v) => upd(field, v, true));
-  });
+  const mbox = P.querySelector('.chips[data-field="member"]');
+  mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => upd("member", b.dataset.v, true)));
+  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => upd("member", v, true));
+  // 결함종류: 여러 개 선택, 균열끼리는 하나만
+  const toggleType = (t) => {
+    let sel = splitTypes(selMark().dtype);
+    if (sel.includes(t)) sel = sel.filter((x) => x !== t);
+    else { if (groupOf(t) === SINGLE_GROUP) sel = sel.filter((x) => groupOf(x) !== SINGLE_GROUP); sel.push(t); }
+    upd("dtype", joinTypes(sel), true);
+  };
+  P.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => { S.dtab = b.dataset.tab; renderPanel(); }));
+  P.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => toggleType(b.dataset.t)));
+  P.querySelectorAll("[data-tdel]").forEach((b) => (b.onclick = () => upd("dtype", joinTypes(splitTypes(selMark().dtype).filter((x) => x !== b.dataset.tdel)), true)));
+  P.querySelector("[data-tadd]").onclick = () => customModal("결함종류 직접 입력", (v) => { const sel = splitTypes(selMark().dtype); if (!sel.includes(v)) toggleType(v); });
   $("#f-w").oninput = (e) => upd("w", e.target.value.trim());
   $("#f-l").oninput = (e) => upd("l", e.target.value.trim());
   $("#f-count").oninput = (e) => upd("count", e.target.value.trim());
   $("#f-cm").onclick = () => { const c = Math.max(1, (parseInt(m.count, 10) || 1) - 1); upd("count", c, true); };
   $("#f-cp").onclick = () => { const c = (parseInt(m.count, 10) || 1) + 1; upd("count", c, true); };
   $("#f-photo").oninput = (e) => upd("photo", e.target.value.trim());
+  const step = (d) => { const cur = selMark().photo; const v = cur ? bumpPhoto(cur, d) : sugg; if (v) upd("photo", v, true); };
+  $("#f-pm").onclick = () => step(-1);
+  $("#f-pp").onclick = () => step(1);
   if ($("#f-sugg")) $("#f-sugg").onclick = () => upd("photo", sugg, true);
   $("#f-memo").oninput = (e) => upd("memo", e.target.value);
+  $("#f-no").onclick = () => numberModal(m);
   $("#f-done").onclick = () => { S.sel = null; renderOverlay(); renderPanel(); };
-  const del = $("#f-del");
-  del.onclick = () => {
-    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "한 번 더 누르면 삭제"; setTimeout(() => { if (del.isConnected) { del.classList.remove("armed"); del.textContent = "삭제"; } }, 3000); return; }
+  $("#f-del").onclick = () => {
     const mm = selMark(); if (!mm) return;
     pushUndo(); mm.deleted = true; mm.updatedAt = now(); S.sel = null; touch(mm.pageKey);
-    renderOverlay(); renderPanel(); renderBar();
+    renderOverlay(); renderPanel();
+    toast(`결함 ${mm.no}을 지웠습니다 · 되돌리기로 살릴 수 있습니다`);
+  };
+}
+function renderNotePanel(P, n) {
+  P.innerHTML = `
+    <div class="ph">
+      <div class="t"><span class="eyebrow">메모 · 번호 없음</span><span class="big" style="color:${COL.note}">${NOTE_LABEL[n.kind]}</span></div>
+      <button class="btn danger" id="n-del">삭제</button>
+    </div>
+    ${n.kind === "text" ? `
+    <div class="fld"><span class="lab">내용</span><textarea class="inp" id="n-text" rows="3">${esc(n.text)}</textarea></div>
+    <div class="fld"><span class="lab">글씨 크기</span>
+      <span class="stepper"><button id="n-sm" aria-label="작게">−</button><input class="num" id="n-sz" readonly value="${Math.round((n.scale || 1) * 100)}%" style="width:64px"><button id="n-sp" aria-label="크게">+</button></span>
+    </div>` : ""}
+    <p class="help">끌면 옮겨집니다. 메모는 엑셀에 들어가지 않고, PDF로 내보낼 때 넣을지 고릅니다.</p>
+    <div class="pfoot"><button class="btn primary" id="n-done">완료</button></div>`;
+  const save = () => { n.updatedAt = now(); S.redo = []; updateUndoBtns(); touch(n.pageKey); renderOverlay(); };
+  if (n.kind === "text") {
+    const ta = $("#n-text");
+    ta.onfocus = () => { if (!ta.dataset.u) { pushUndo(); ta.dataset.u = "1"; } };
+    ta.oninput = () => { n.text = ta.value; save(); };
+    const size = (d) => { pushUndo(); n.scale = clamp(Math.round(((n.scale || 1) + d) * 4) / 4, 0.5, 4); save(); renderPanel(); };
+    $("#n-sm").onclick = () => size(-0.25);
+    $("#n-sp").onclick = () => size(0.25);
+  }
+  $("#n-del").onclick = () => { pushUndo(); n.deleted = true; n.updatedAt = now(); S.sel = null; touch(n.pageKey); renderOverlay(); renderPanel(); toast("메모를 지웠습니다 · 되돌리기로 살릴 수 있습니다"); };
+  $("#n-done").onclick = () => { S.sel = null; renderOverlay(); renderPanel(); };
+}
+// 결함 번호 바꾸기: 겹치면 서로 바꾸기 / 끼워 넣기
+function numberModal(m) {
+  const floor = floorOf(m);
+  openModal(`
+    <h3>결함 번호 바꾸기</h3>
+    <p class="sub">${esc(floor || "층 미지정")} · 지금 ${esc(m.no)}번</p>
+    <span class="stepper" style="justify-self:start"><button id="nm-m" aria-label="번호 줄이기">−</button><input class="num" id="nm-in" inputmode="numeric" value="${esc(m.no)}" style="width:72px"><button id="nm-p" aria-label="번호 늘리기">+</button></span>
+    <div id="nm-ask"></div>
+    <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="nm-ok">바꾸기</button></div>`);
+  const inp = $("#nm-in");
+  const val = () => parseInt(inp.value, 10);
+  $("#nm-m").onclick = () => { inp.value = Math.max(1, (val() || 1) - 1); $("#nm-ask").innerHTML = ""; };
+  $("#nm-p").onclick = () => { inp.value = (val() || 0) + 1; $("#nm-ask").innerHTML = ""; };
+  inp.oninput = () => ($("#nm-ask").innerHTML = "");
+  const others = () => live().filter((x) => x.id !== m.id && floorOf(x) === floor);
+  const done = (changed) => { const t = now(); changed.forEach((x) => { x.updatedAt = t; touch(x.pageKey); }); closeModal(); renderOverlay(); renderPanel(); };
+  $("#nm-ok").onclick = () => {
+    const n = val();
+    if (!n || n < 1) { toast("1 이상의 번호를 넣어주세요"); return; }
+    if (n === m.no) { closeModal(); return; }
+    const hit = others().find((x) => x.no === n);
+    if (!hit) { pushUndo(); m.no = n; done([m]); return; }
+    $("#nm-ask").innerHTML = `
+      <p style="margin:0 0 8px;line-height:1.6">${esc(floor)}에 이미 <b>${n}번</b>이 있습니다.</p>
+      <div class="menu">
+        <button class="btn" id="nm-swap">서로 바꾸기<small>${esc(m.no)}번 ↔ ${n}번</small></button>
+        <button class="btn" id="nm-ins">끼워 넣기<small>${n}번 자리에 넣고 사이 번호를 하나씩 밀기</small></button>
+      </div>`;
+    $("#nm-swap").onclick = () => { pushUndo(); hit.no = m.no; m.no = n; done([m, hit]); };
+    $("#nm-ins").onclick = () => {
+      pushUndo();
+      const old = m.no, ch = [m];
+      for (const x of others()) {
+        if (old > n && x.no >= n && x.no < old) { x.no++; ch.push(x); }
+        else if (old < n && x.no > old && x.no <= n) { x.no--; ch.push(x); }
+      }
+      m.no = n; done(ch);
+    };
   };
 }
 function renderPageSummary(P) {
   const k = curKey(); const fl = floorOfPage(k);
   const ms = marksOn(k);
   const floorCount = fl ? live().filter((m) => floorOf(m) === fl).length : 0;
+  const size = (m) => {
+    if (!m.w && !m.l) return "";
+    const wu = widthUnit(m);
+    return `<span class="num">${esc(m.w || "-")}${m.w && wu ? wu : ""}×${esc(m.l || "-")}${m.l ? "m" : ""}</span>`;
+  };
   P.innerHTML = `
     <div class="ph"><div class="t"><span class="eyebrow">이 도면</span><span class="big">${esc(fl || "층 미지정")}</span></div></div>
+    ${fl ? `<label class="cur-photo"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">${esc(fl)} 현황사진 · 야장 PDF 왼쪽 위에 찍힘</span>
+      <input class="inp num" id="f-cur" autocomplete="off" value="${esc(photoRange(fl))}" placeholder="예: 6500-6520"></label>` : ""}
     <div class="stat">
       <div><span class="v num">${ms.length}</span><span class="k">이 도면 결함</span></div>
       <div><span class="v num">${floorCount}</span><span class="k">${esc(fl || "-")} 전체</span></div>
@@ -1097,15 +1503,17 @@ function renderPageSummary(P) {
     </div>
     ${ms.length ? `<div class="list">${ms.map((m) => `
       <button class="lrow" data-sel="${m.id}"><span class="n">${esc(m.no)}</span>
-        <span class="d">${esc(m.member || "부재?")} ${esc(m.dtype || "종류?")} ${m.w || m.l ? `<span class="num">${esc(m.w || "-")}×${esc(m.l || "-")}</span>` : ""}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
+        <span class="d">${esc(m.member || "부재?")} ${esc(m.dtype || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>
       </button>`).join("")}</div>` : ""}
     <p class="help">
       <b>점</b> 결함 위치를 누르면 번호가 붙습니다.<br>
       <b>화살표</b> 결함 위치에서 번호 놓을 곳까지 끕니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
-      번호 원을 누르면 수정, 끌면 위치가 옮겨집니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다.
+      <b>글씨 · 펜</b> 번호 없는 파란색 메모입니다.<br>
+      번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다.
     </p>`;
+  if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
 }
 function focusMark(m) {
@@ -1178,6 +1586,7 @@ function exportModal() {
     <div class="menu">
       <span class="menu-h">내보내기</span>
       <button class="btn" id="x-pdf">표시된 야장 PDF<small>도면 + 번호 표시</small></button>
+      <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>메모(파란 글씨·펜)도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
       <button class="btn" id="x-xlsx">결함 목록 엑셀<small>층·번호·부재·종류·폭×길이·개수·사진</small></button>
       <button class="btn" id="x-json">백업 파일 저장<small>하루 끝에 한 번</small></button>
       <span class="menu-h">합치기 · 정리</span>
@@ -1190,6 +1599,7 @@ function exportModal() {
       <button class="btn" id="x-set">버튼 목록 · 표시 크기<small>부재 · 결함종류</small></button>
     </div>
     <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
+  $("#x-notes").onchange = (e) => { S.proj.prefs.printNotes = e.target.checked; touch(null); };
   $("#x-pdf").onclick = () => runBusy($("#x-pdf"), exportPdf);
   $("#x-xlsx").onclick = () => runBusy($("#x-xlsx"), exportXlsx);
   $("#x-json").onclick = () => runBusy($("#x-json"), exportJson);
@@ -1213,18 +1623,24 @@ async function runBusy(btn, fn) {
 }
 function settingsModal() {
   const p = S.proj;
+  const groupsText = (gs) => gs.map((g) => `${g.name}: ${g.items.join(", ")}`).join("\n");
   openModal(`
     <h3>버튼 목록 · 표시 크기</h3>
     <div class="fld"><span class="lab">부재 (쉼표로 구분)</span><textarea class="inp" id="s-mem">${esc(members().join(", "))}</textarea></div>
-    <div class="fld"><span class="lab">결함종류 (쉼표로 구분)</span><textarea class="inp" id="s-typ">${esc(dtypes().join(", "))}</textarea></div>
+    <div class="fld"><span class="lab">결함종류 (한 줄에 한 분류 · "분류: 종류, 종류")</span><textarea class="inp" id="s-typ" rows="6">${esc(groupsText(groups()))}</textarea></div>
     <div class="fld"><span class="lab">번호 표시 크기 <span class="num" id="s-szv">${sizeFactor().toFixed(1)}</span>배</span><input type="range" id="s-sz" min="0.5" max="2.5" step="0.1" value="${sizeFactor()}"></div>
     <div class="sheet-foot"><button class="btn ghost" id="s-reset">기본값</button><button class="btn ghost" data-close>취소</button><button class="btn primary" id="s-ok">저장</button></div>`);
   $("#s-sz").oninput = (e) => ($("#s-szv").textContent = Number(e.target.value).toFixed(1));
   const split = (s) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
-  $("#s-reset").onclick = () => { $("#s-mem").value = DEFAULT_MEMBERS.join(", "); $("#s-typ").value = DEFAULT_TYPES.join(", "); $("#s-sz").value = 1; $("#s-szv").textContent = "1.0"; };
+  const parseGroups = (s) => s.split("\n").map((line) => {
+    const i = line.indexOf(":"); const name = i < 0 ? "기타" : line.slice(0, i).trim();
+    return { name: name || "기타", items: split(i < 0 ? line : line.slice(i + 1)) };
+  }).filter((g) => g.items.length);
+  $("#s-reset").onclick = () => { $("#s-mem").value = DEFAULT_MEMBERS.join(", "); $("#s-typ").value = groupsText(DEFAULT_GROUPS); $("#s-sz").value = 1; $("#s-szv").textContent = "1.0"; };
   $("#s-ok").onclick = () => {
-    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), types: split($("#s-typ").value), size: Number($("#s-sz").value) };
-    try { localStorage.setItem("dy-prefs", JSON.stringify({ members: p.prefs.members, types: p.prefs.types })); } catch (e) {}
+    const gs = parseGroups($("#s-typ").value);
+    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
+    delete p.prefs.types;
     touch(null); closeModal(); renderOverlay(); renderPanel();
   };
 }
@@ -1252,26 +1668,34 @@ const asNum = (v) => (v !== "" && v != null && !isNaN(Number(v)) ? Number(v) : (
 async function exportXlsx() {
   if (!window.XLSX) throw new Error("엑셀 기능을 불러오지 못했습니다 (인터넷 확인)");
   const pageName = new Map(S.pages.map((p) => [p.key, p.name + ((S.proj.files.find((f) => f.fid === p.fid) || {}).pageCount > 1 ? ` p.${p.i + 1}` : "")]));
+  // 폭 단위: 균열이 있으면 mm, 박리·누수 등만 있으면 m. 길이는 항상 m
   const rows = sortedRows().map((m) => ({
     "층": floorOf(m), "번호": m.no, "부재": m.member, "결함종류": m.dtype,
-    "폭": asNum(m.w), "길이": asNum(m.l), "개수": asNum(m.count), "사진번호": m.photo,
+    "폭": asNum(m.w), "길이(m)": asNum(m.l), "단위": m.w || m.l ? (widthUnit(m) === "mm" ? "mm×m" : "m×m") : "", "개수": asNum(m.count), "사진번호": m.photo,
     "메모": m.memo, "표시": KIND_LABEL[m.type], "도면": pageName.get(m.pageKey) || "",
   }));
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ "층": "", "번호": "", "부재": "", "결함종류": "", "폭": "", "길이": "", "개수": "", "사진번호": "", "메모": "", "표시": "", "도면": "" }]);
-  ws["!cols"] = [8, 6, 9, 11, 7, 8, 6, 13, 24, 7, 24].map((w) => ({ wch: w }));
+  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ "층": "", "번호": "", "부재": "", "결함종류": "", "폭": "", "길이(m)": "", "단위": "", "개수": "", "사진번호": "", "메모": "", "표시": "", "도면": "" }]);
+  ws["!cols"] = [8, 6, 13, 24, 7, 8, 7, 6, 13, 24, 7, 24].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, "결함목록");
-  // 층·부재·결함종류별 물량
+  // 층·부재·결함종류별 물량 (여러 종류를 고른 결함은 종류마다 1개소씩)
+  // 균열은 길이 합(m) = 길이×개수, 나머지는 면적 합(m²) = 폭×길이×개수 (폭이 m일 때만)
   const agg = new Map();
   for (const m of sortedRows()) {
-    const key = [floorOf(m), m.member, m.dtype].join("\u0001");
-    const a = agg.get(key) || { "층": floorOf(m), "부재": m.member, "결함종류": m.dtype, "개소": 0, "개수 합": 0, "길이 합": 0 };
-    a["개소"] += 1; a["개수 합"] += parseInt(m.count, 10) || 1;
-    const l = Number(m.l); if (!isNaN(l) && m.l !== "") a["길이 합"] += l;
-    agg.set(key, a);
+    const cnt = parseInt(m.count, 10) || 1, w = Number(m.w), l = Number(m.l);
+    const okL = m.l !== "" && !isNaN(l), okW = m.w !== "" && !isNaN(w);
+    for (const t of splitTypes(m.dtype).length ? splitTypes(m.dtype) : [""]) {
+      const key = [floorOf(m), m.member, t].join("\u0001");
+      const a = agg.get(key) || { "층": floorOf(m), "부재": m.member, "결함종류": t, "개소": 0, "개수 합": 0, "길이 합(m)": 0, "면적 합(m²)": 0 };
+      a["개소"] += 1; a["개수 합"] += cnt;
+      if (isCrackType(t)) { if (okL) a["길이 합(m)"] += l * cnt; }
+      else if (widthUnit(m) === "m" && okL && okW) a["면적 합(m²)"] += w * l * cnt;
+      agg.set(key, a);
+    }
   }
-  const ws2 = XLSX.utils.json_to_sheet([...agg.values()]);
-  ws2["!cols"] = [8, 9, 11, 7, 8, 9].map((w) => ({ wch: w }));
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  const ws2 = XLSX.utils.json_to_sheet([...agg.values()].map((a) => ({ ...a, "길이 합(m)": r3(a["길이 합(m)"]) || "", "면적 합(m²)": r3(a["면적 합(m²)"]) || "" })));
+  ws2["!cols"] = [8, 13, 18, 7, 8, 10, 11].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws2, "물량집계");
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   await saveFile(`${S.proj.name}_결함목록.xlsx`, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -1284,6 +1708,7 @@ async function exportPdf() {
   const out = await PDFDocument.create();
   const font = await out.embedFont(StandardFonts.HelveticaBold);
   const red = rgb(0.84, 0.2, 0.165), white = rgb(1, 1, 1);
+  const withNotes = S.proj.prefs.printNotes !== false;
   let pagesOut = 0;
   for (const f of S.proj.files) {
     const blob = await Local.getBlob(f.fid);
@@ -1297,7 +1722,9 @@ async function exportPdf() {
         const pg = out.addPage(copied[i]);
         const jp = await d.pdf.getPage(i + 1);
         const v = jp.getViewport({ scale: 1 });
-        drawMarksPdf(pg, marksOn(`${f.fid}_${i}`), (x, y) => v.convertToPdfPoint(x, y), v.rotation || 0, v.width, v.height);
+        const conv = (x, y) => v.convertToPdfPoint(x, y);
+        await drawLayerPdf(out, pg, `${f.fid}_${i}`, conv, v.width, v.height);
+        drawMarksPdf(pg, marksOn(`${f.fid}_${i}`), conv, v.rotation || 0, v.width, v.height);
         pagesOut++;
       }
     } else {
@@ -1305,6 +1732,7 @@ async function exportPdf() {
       const W = img.width, H = img.height;
       const pg = out.addPage([W, H]);
       pg.drawImage(img, { x: 0, y: 0, width: W, height: H });
+      await drawLayerPdf(out, pg, `${f.fid}_0`, (x, y) => [x, H - y], W, H);
       drawMarksPdf(pg, marksOn(`${f.fid}_0`), (x, y) => [x, H - y], 0, W, H);
       pagesOut++;
     }
@@ -1313,6 +1741,47 @@ async function exportPdf() {
   const bytes = await out.save();
   await saveFile(`${S.proj.name}_결함야장.pdf`, new Blob([bytes], { type: "application/pdf" }));
 
+  // 한글(메모·현황사진)은 PDF 기본 글꼴로 못 쓰므로 투명 그림 한 장으로 얹음
+  async function drawLayerPdf(doc, pg, key, conv, W, H) {
+    const ns = withNotes ? notesOn(key) : [];
+    const pl = photoLabelText(key);
+    if (!ns.length && !pl) return;
+    const k = Math.min(3, Math.sqrt(16e6 / (W * H)));
+    const c = document.createElement("canvas"); c.width = Math.round(W * k); c.height = Math.round(H * k);
+    const g = c.getContext("2d"); g.scale(k, k);
+    const u = unitFor(W, H);
+    for (const n of ns) {
+      g.strokeStyle = COL.note; g.fillStyle = COL.note; g.lineCap = "round"; g.lineJoin = "round";
+      if (n.kind === "pen") {
+        g.lineWidth = penWidth(u); g.beginPath();
+        n.pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])));
+        if (n.pts.length === 1) g.lineTo(n.pts[0][0] + 0.01, n.pts[0][1]);
+        g.stroke();
+      } else {
+        const fs = noteFs(n, u);
+        g.font = `500 ${fs}px ${NOTE_FONT}`; g.textBaseline = "alphabetic";
+        noteLines(n).forEach((l, i) => {
+          const y = n.at[1] + fs * (1.3 * i + 1);
+          g.lineWidth = fs * 0.2; g.strokeStyle = "#fff"; g.strokeText(l, n.at[0], y);
+          g.fillText(l, n.at[0], y);
+        });
+      }
+    }
+    if (pl) {
+      const fs = u * 1.2, pad = fs * 0.4, h = fs * 1.6;
+      g.font = `700 ${fs}px ${NOTE_FONT}`;
+      const w = Math.max(textEm(pl) * fs, g.measureText(pl).width) + pad * 2;
+      g.fillStyle = "#fff"; g.fillRect(u, u, w, h);
+      g.lineWidth = u * 0.1; g.strokeStyle = "#16202b"; g.strokeRect(u, u, w, h);
+      g.fillStyle = "#16202b"; g.textBaseline = "middle"; g.fillText(pl, u + pad, u + h / 2);
+    }
+    const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+    const img = await doc.embedPng(await blob.arrayBuffer());
+    // 그림의 왼쪽 아래 = 화면 기준 (0,H), 가로축 방향으로 회전 (회전된 PDF 쪽도 맞음)
+    const a = conv(0, H), b = conv(1, H);
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    pg.drawImage(img, { x: a[0], y: a[1], width: W, height: H, rotate: degrees(ang) });
+  }
   function drawMarksPdf(pg, ms, conv, rot, W, H) {
     const u = unitFor(W, H), r = u * 1.05, sw = u * 0.17;
     const P = (q) => conv(q[0], q[1]);
@@ -1353,7 +1822,7 @@ async function exportPdf() {
 
 /* ---------------- 백업 파일 ---------------- */
 async function exportJson() {
-  const data = { format: "defect-yajang", version: 1, savedAt: now(), project: metaOf(S.proj), marks: S.proj.marks };
+  const data = { format: "defect-yajang", version: 2, savedAt: now(), project: metaOf(S.proj), marks: S.proj.marks, notes: S.proj.notes || [] };
   const d = new Date(); const p = (n) => String(n).padStart(2, "0");
   await saveFile(`${S.proj.name}_백업_${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`, JSON.stringify(data));
 }
@@ -1369,13 +1838,16 @@ async function importJson(file) {
     const lf = sameProject ? p.files.find((f) => f.fid === rf.fid) : p.files.find((f) => f.name === rf.name && (f.pageCount || 1) === (rf.pageCount || 1));
     if (lf) fidMap.set(rf.fid, lf.fid);
   }
-  let skipped = 0; const incoming = [];
+  let skipped = 0; const incoming = [], incomingN = [];
+  const mapKey = (pk) => { const lfid = fidMap.get(pk.slice(0, pk.lastIndexOf("_"))); return lfid ? `${lfid}_${pk.slice(pk.lastIndexOf("_") + 1)}` : null; };
   for (const m of data.marks || []) {
-    const [rfid, idx] = [m.pageKey.slice(0, m.pageKey.lastIndexOf("_")), m.pageKey.slice(m.pageKey.lastIndexOf("_") + 1)];
-    const lfid = fidMap.get(rfid);
-    if (!lfid) { skipped++; continue; }
-    incoming.push({ ...m, pageKey: `${lfid}_${idx}` });
+    const k = mapKey(m.pageKey);
+    if (!k) { if (!m.deleted) skipped++; continue; }
+    incoming.push({ ...m, pageKey: k });
   }
+  for (const n of data.notes || []) { const k = mapKey(n.pageKey); if (k) incomingN.push({ ...n, pageKey: k }); }
+  p.photoRanges = p.photoRanges || {};
+  for (const [fl, r] of Object.entries(data.project.photoRanges || {})) if (r && !p.photoRanges[fl]) p.photoRanges[fl] = r;
   for (const [rk, fl] of Object.entries(data.project.floors || {})) {
     const rfid = rk.slice(0, rk.lastIndexOf("_")), idx = rk.slice(rk.lastIndexOf("_") + 1);
     const lfid = fidMap.get(rfid); if (!lfid) continue;
@@ -1384,7 +1856,8 @@ async function importJson(file) {
   pushUndo();
   const before = live().length;
   p.marks = mergeMarks(p.marks, incoming);
-  new Set(incoming.map((m) => m.pageKey)).forEach((k) => touch(k)); touch(null);
+  p.notes = mergeMarks(p.notes || [], incomingN);
+  new Set([...incoming, ...incomingN].map((m) => m.pageKey)).forEach((k) => touch(k)); touch(null);
   closeModal(); renderBar(); renderOverlay(); renderPanel();
   // 같은 층 번호 겹침 확인
   const seen = new Set(); let dup = 0;
@@ -1399,12 +1872,13 @@ async function importJson(file) {
 document.addEventListener("keydown", (e) => {
   if (S.view !== "work" || !$("#modal").hidden) { if (e.key === "Escape") closeModal(); return; }
   const typing = /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName);
+  if ((e.ctrlKey || e.metaKey) && !typing && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); undo(); return; }
   if (typing) return;
   if (e.key === "Escape") { S.sel = null; renderOverlay(); renderPanel(); }
   if (e.key === "ArrowRight" || e.key === "PageDown") showPage(S.cur + 1);
   if (e.key === "ArrowLeft" || e.key === "PageUp") showPage(S.cur - 1);
-  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area" };
+  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area", "4": "text", "5": "pen" };
   if (map[e.key]) { S.tool = map[e.key]; renderBar(); showHint(); }
 });
 
@@ -1418,6 +1892,9 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("online", () => { if (S.proj) scheduleCloud(500); updateSync(); });
 window.addEventListener("offline", () => { S.sync.state = "offline"; updateSync(); });
 window.addEventListener("pagehide", () => flushLocal());
+// 도면 밖에서 두 손가락 벌리기 · 두 번 톡으로 화면 전체가 커지지 않게 (도면 확대는 따로 처리)
+["gesturestart", "gesturechange", "gestureend"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 /* ---------------- 점검용 (주소 끝에 #selftest) ---------------- */
 async function selfTest() {
@@ -1460,6 +1937,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 3207f866b4 -->
+<!-- build 85bf6c8e46 -->
 </body>
 </html>
