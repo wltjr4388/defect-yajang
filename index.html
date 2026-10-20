@@ -1943,18 +1943,20 @@ async function selfTest() {
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").then((reg) => {
-      reg.addEventListener("updatefound", () => {
-        const w = reg.installing;
-        w && w.addEventListener("statechange", () => {
-          if (w.state === "installed" && navigator.serviceWorker.controller && typeof toast === "function")
-            toast("새 버전이 준비됐습니다. 앱을 닫았다 열면 적용됩니다", 5000);
-        });
-      });
+    const hadCtl = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    // 새 버전이 적용되면 화면을 한 번 새로 엶 (저장은 기기에 바로바로 되어 있음)
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadCtl || reloaded) return;
+      reloaded = true;
+      if (typeof flushLocal === "function") flushLocal().finally(() => location.reload()); else location.reload();
+    });
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
     }).catch(() => {});
   });
 }
 </script>
-<!-- build 358615a6ee -->
+<!-- build 6d9f2002e1 -->
 </body>
 </html>
