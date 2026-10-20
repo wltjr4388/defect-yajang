@@ -231,7 +231,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "9a83609e98"; window.DY_BUILT = "2026-10-20 18:22";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "917d4e4d73"; window.DY_BUILT = "2026-10-20 18:24";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -879,7 +879,7 @@ function renderBar() {
     <button class="btn floor-btn ${fl ? "" : "unset"}" id="t-floor">${fl ? esc(fl) : "층 지정"}</button>
     <span class="sep"></span>
     <span class="tools" role="group" aria-label="표시 도구">
-      ${["pan", "point", "arrow", "area", "pen", "eraser"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pan: "이동", pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
+      ${["point", "arrow", "area", "pen", "eraser"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
     </span>
     <button class="btn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
     <button class="btn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
@@ -1593,7 +1593,7 @@ function renderPageSummary(P) {
       <b>화살표</b> 결함 위치에서 번호 놓을 곳까지 끕니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기를 고를 수 있습니다.<br>
-      번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다.
+      번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 쓸 때는 두 손가락으로 끌면 이동, 벌리면 확대입니다.
     </p>`;
   P.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPanel(); }));
   if ($("#pen-opts")) bindPenOpts($("#pen-opts"), (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; touch(null); renderPanel(); });
@@ -1962,7 +1962,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { S.sel = null; renderOverlay(); renderPanel(); }
   if (e.key === "ArrowRight" || e.key === "PageDown") showPage(S.cur + 1);
   if (e.key === "ArrowLeft" || e.key === "PageUp") showPage(S.cur - 1);
-  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area", "4": "pen", "5": "eraser" };
+  const map = { "1": "point", "2": "arrow", "3": "area", "4": "pen", "5": "eraser" };
   if (map[e.key]) { S.tool = map[e.key]; renderBar(); showHint(); }
 });
 
@@ -2023,6 +2023,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 9a83609e98 -->
+<!-- build 917d4e4d73 -->
 </body>
 </html>
