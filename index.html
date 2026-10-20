@@ -161,6 +161,12 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .sel-line .tagx span { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
 .cur-photo { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .cur-photo .inp { background: var(--surface); }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--ink); }
+.wchip { display: inline-flex; align-items: center; gap: 8px; }
+.wchip i { display: inline-block; width: 22px; border-radius: 4px; background: currentColor; }
+.pen-opts { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .chk { display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 4px; }
 .chk input { width: 22px; height: 22px; }
 .pfoot { display: flex; gap: 8px; margin-top: 4px; }
@@ -257,6 +263,9 @@ const FLOORS = ["지하3층", "지하2층", "지하1층", "1층", "2층", "3층"
 const KIND_LABEL = { point: "점", arrow: "화살표", area: "영역" };
 const NOTE_LABEL = { text: "글씨 메모", pen: "펜 메모" };
 const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8" };
+// 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
+const PEN_COLORS = [["#1d5bd8", "파랑"], ["#16202b", "검정"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#d6332a", "빨강"]];
+const PEN_WIDTHS = [[0.5, "가늘게"], [1, "보통"], [2, "굵게"], [3.5, "아주 굵게"]];
 
 /* ---------------- 기기 저장 (IndexedDB, 실패 시 메모리) ---------------- */
 const Local = (() => {
@@ -848,10 +857,7 @@ function renderBar() {
     <button class="btn floor-btn ${fl ? "" : "unset"}" id="t-floor">${fl ? esc(fl) : "층 지정"}</button>
     <span class="sep"></span>
     <span class="tools" role="group" aria-label="표시 도구">
-      ${["pan", "point", "arrow", "area"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${t === "pan" ? "이동" : KIND_LABEL[t]}</span></button>`).join("")}
-    </span>
-    <span class="tools" role="group" aria-label="메모 도구">
-      ${["text", "pen"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}" style="color:${S.tool === t ? "" : COL.note}">${ICON[t]}<span>${t === "text" ? "글씨" : "펜"}</span></button>`).join("")}
+      ${["pan", "point", "arrow", "area", "pen"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${t === "pan" ? "이동" : t === "pen" ? "펜" : KIND_LABEL[t]}</span></button>`).join("")}
     </span>
     <button class="btn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
     <button class="btn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
@@ -868,12 +874,12 @@ function renderBar() {
   $("#t-redo").onclick = redo;
   $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
-  document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; renderBar(); showHint(); }));
+  document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", text: "메모를 넣을 곳을 누르세요 (파란색, 번호 없음)", pen: "자유롭게 쓰거나 그리세요 (파란색, 번호 없음)" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 오른쪽에서 고릅니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -999,7 +1005,7 @@ function handleSVG(at) {
   return `<circle cx="${at[0]}" cy="${at[1]}" r="${11 / k}" fill="#fff" fill-opacity="0.85" stroke="${COL.sel}" stroke-width="${3 / k}"/>`;
 }
 
-/* 메모 (파란색, 번호 없음): 글씨 {kind:"text", at, text, scale} / 펜 {kind:"pen", pts} */
+/* 메모 (번호 없음): 펜 {kind:"pen", pts, color, w}. 글씨 {kind:"text", at, text, scale}는 예전 데이터 표시용 (도구는 뺌) */
 const NOTE_FONT = `"Apple SD Gothic Neo", "Malgun Gothic", "IBM Plex Sans KR", sans-serif`;
 function noteFs(n, u) { return u * 1.15 * (n.scale || 1); }
 function textEm(s) { let w = 0; for (const ch of s) w += /[ᄀ-ᇿ　-鿿가-힯＀-￯]/.test(ch) ? 1 : 0.6; return w; }
@@ -1013,12 +1019,22 @@ function noteBox(n, u) {
   const fs = noteFs(n, u), ls = noteLines(n);
   return { x: n.at[0], y: n.at[1], w: Math.max(1, ...ls.map(textEm)) * fs, h: ls.length * fs * 1.3 };
 }
-function penWidth(u) { return u * 0.16; }
+function penWidth(u, n) { return u * 0.16 * ((n && n.w) || 1); }
+function penColor(n) { return (n && n.color) || COL.note; }
+function penStyle() { return (S.proj && S.proj.prefs && S.proj.prefs.pen) || { color: COL.note, w: 1 }; }
+function penOptsHTML(cur) {
+  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${penColor(cur) === c}"></button>`).join("")}</div></div>
+    <div class="fld"><span class="lab">선 두께</span><div class="chips">${PEN_WIDTHS.map(([w, nm]) => `<button class="chip wchip" data-pw="${w}" aria-pressed="${((cur && cur.w) || 1) === w}"><i style="height:${Math.max(2, w * 3)}px"></i>${nm}</button>`).join("")}</div></div>`;
+}
+function bindPenOpts(box, apply) {
+  box.querySelectorAll("[data-pc]").forEach((b) => (b.onclick = () => apply({ color: b.dataset.pc })));
+  box.querySelectorAll("[data-pw]").forEach((b) => (b.onclick = () => apply({ w: Number(b.dataset.pw) })));
+}
 function noteSVG(n, col, u) {
   if (n.kind === "pen") {
     if (!n.pts.length) return "";
     const d = n.pts.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" ");
-    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${penWidth(u)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return `<path d="${d}" fill="none" stroke="${penColor(n)}" stroke-width="${penWidth(u, n)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
   const fs = noteFs(n, u);
   return `<text font-size="${fs}" font-weight="500" font-family='${NOTE_FONT}' fill="${col}" stroke="#fff" stroke-width="${fs * 0.2}" paint-order="stroke" stroke-linejoin="round">${noteLines(n).map((l, i) => `<tspan x="${n.at[0]}" y="${n.at[1] + fs * (1.3 * i + 1)}">${esc(l) || " "}</tspan>`).join("")}</text>`;
@@ -1049,7 +1065,7 @@ function renderOverlay() {
   for (const m of ms) out += labelSVG(m, col(m), u);
   const sm = selMark(); if (sm && sm.pageKey === k) for (const h of handlesOf(sm)) out += handleSVG(h.at);
   if (draft) {
-    if (draft.type === "pen") out += noteSVG({ kind: "pen", pts: draft.pts }, COL.note, u);
+    if (draft.type === "pen") out += noteSVG({ kind: "pen", pts: draft.pts, ...penStyle() }, COL.note, u);
     else { out += geomSVG(draft, COL.sel, u); out += labelSVG({ ...draft, no: "?" }, COL.sel, u); }
   }
   ov.innerHTML = out;
@@ -1098,7 +1114,7 @@ function hitTest(p) {
       const b = noteBox(n, u), pd = tol * 0.5;
       if (p[0] >= b.x - pd && p[0] <= b.x + b.w + pd && p[1] >= b.y - pd && p[1] <= b.y + b.h + pd) return { kind: "note", id: n.id };
     } else {
-      for (let j = 1; j < n.pts.length; j++) if (segDist(p, n.pts[j - 1], n.pts[j]) < Math.max(tol * 0.6, penWidth(u))) return { kind: "note", id: n.id };
+      for (let j = 1; j < n.pts.length; j++) if (segDist(p, n.pts[j - 1], n.pts[j]) < Math.max(tol * 0.6, penWidth(u, n))) return { kind: "note", id: n.id };
       if (n.pts.length === 1 && Math.hypot(n.pts[0][0] - p[0], n.pts[0][1] - p[1]) < tol * 0.6) return { kind: "note", id: n.id };
     }
   }
@@ -1137,7 +1153,6 @@ vp.addEventListener("pointerdown", (e) => {
     selectItem(hit.id);
     return;
   }
-  if (S.tool === "text" && !fingerOnly) { gest = panG({ tapText: p }); return; }
   if (MARK_TOOLS.includes(S.tool) && !fingerOnly) {
     if (!floorOfPage(curKey())) { ptrs.clear(); floorModal(curKey()); return; }
     gest = { kind: "draw", tool: S.tool, start: p, cur: p };
@@ -1276,7 +1291,8 @@ function finishPen(g) {
   const k = curKey();
   pushUndo();
   const r1 = (v) => Math.round(v * 10) / 10;
-  S.proj.notes.push({ id: uid(), pageKey: k, kind: "pen", pts: g.pts.map((q) => [r1(q[0]), r1(q[1])]), createdAt: now(), updatedAt: now() });
+  const st = penStyle();
+  S.proj.notes.push({ id: uid(), pageKey: k, kind: "pen", pts: g.pts.map((q) => [r1(q[0]), r1(q[1])]), color: st.color, w: st.w, createdAt: now(), updatedAt: now() });
   touch(k); renderOverlay();
 }
 function textModal(n, at) {
@@ -1421,14 +1437,14 @@ function renderPanel() {
 function renderNotePanel(P, n) {
   P.innerHTML = `
     <div class="ph">
-      <div class="t"><span class="eyebrow">메모 · 번호 없음</span><span class="big" style="color:${COL.note}">${NOTE_LABEL[n.kind]}</span></div>
+      <div class="t"><span class="eyebrow">메모 · 번호 없음</span><span class="big" style="color:${n.kind === "pen" ? penColor(n) : COL.note}">${NOTE_LABEL[n.kind]}</span></div>
       <button class="btn danger" id="n-del">삭제</button>
     </div>
     ${n.kind === "text" ? `
     <div class="fld"><span class="lab">내용</span><textarea class="inp" id="n-text" rows="3">${esc(n.text)}</textarea></div>
     <div class="fld"><span class="lab">글씨 크기</span>
       <span class="stepper"><button id="n-sm" aria-label="작게">−</button><input class="num" id="n-sz" readonly value="${Math.round((n.scale || 1) * 100)}%" style="width:64px"><button id="n-sp" aria-label="크게">+</button></span>
-    </div>` : ""}
+    </div>` : `<div class="pen-opts" id="n-pen">${penOptsHTML(n)}</div>`}
     <p class="help">끌면 옮겨집니다. 메모는 엑셀에 들어가지 않고, PDF로 내보낼 때 넣을지 고릅니다.</p>
     <div class="pfoot"><button class="btn primary" id="n-done">완료</button></div>`;
   const save = () => { n.updatedAt = now(); S.redo = []; updateUndoBtns(); touch(n.pageKey); renderOverlay(); };
@@ -1439,7 +1455,7 @@ function renderNotePanel(P, n) {
     const size = (d) => { pushUndo(); n.scale = clamp(Math.round(((n.scale || 1) + d) * 4) / 4, 0.5, 4); save(); renderPanel(); };
     $("#n-sm").onclick = () => size(-0.25);
     $("#n-sp").onclick = () => size(0.25);
-  }
+  } else bindPenOpts($("#n-pen"), (v) => { pushUndo(); Object.assign(n, v); save(); renderPanel(); });
   $("#n-del").onclick = () => { pushUndo(); n.deleted = true; n.updatedAt = now(); S.sel = null; touch(n.pageKey); renderOverlay(); renderPanel(); toast("메모를 지웠습니다 · 되돌리기로 살릴 수 있습니다"); };
   $("#n-done").onclick = () => { S.sel = null; renderOverlay(); renderPanel(); };
 }
@@ -1494,6 +1510,7 @@ function renderPageSummary(P) {
   };
   P.innerHTML = `
     <div class="ph"><div class="t"><span class="eyebrow">이 도면</span><span class="big">${esc(fl || "층 미지정")}</span></div></div>
+    ${S.tool === "pen" ? `<div class="pen-opts" id="pen-opts"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">펜 · 번호 없는 메모</span>${penOptsHTML(penStyle())}</div>` : ""}
     ${fl ? `<label class="cur-photo"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">${esc(fl)} 현황사진 · 야장 PDF 왼쪽 위에 찍힘</span>
       <input class="inp num" id="f-cur" autocomplete="off" value="${esc(photoRange(fl))}" placeholder="예: 6500-6520"></label>` : ""}
     <div class="stat">
@@ -1510,9 +1527,10 @@ function renderPageSummary(P) {
       <b>점</b> 결함 위치를 누르면 번호가 붙습니다.<br>
       <b>화살표</b> 결함 위치에서 번호 놓을 곳까지 끕니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
-      <b>글씨 · 펜</b> 번호 없는 파란색 메모입니다.<br>
+      <b>펜</b> 번호 없는 메모입니다. 색과 굵기를 고를 수 있습니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다.
     </p>`;
+  if ($("#pen-opts")) bindPenOpts($("#pen-opts"), (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; touch(null); renderPanel(); });
   if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
 }
@@ -1586,7 +1604,7 @@ function exportModal() {
     <div class="menu">
       <span class="menu-h">내보내기</span>
       <button class="btn" id="x-pdf">표시된 야장 PDF<small>도면 + 번호 표시</small></button>
-      <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>메모(파란 글씨·펜)도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
+      <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
       <button class="btn" id="x-xlsx">결함 목록 엑셀<small>층·번호·부재·종류·폭×길이·개수·사진</small></button>
       <button class="btn" id="x-json">백업 파일 저장<small>하루 끝에 한 번</small></button>
       <span class="menu-h">합치기 · 정리</span>
@@ -1751,9 +1769,9 @@ async function exportPdf() {
     const g = c.getContext("2d"); g.scale(k, k);
     const u = unitFor(W, H);
     for (const n of ns) {
-      g.strokeStyle = COL.note; g.fillStyle = COL.note; g.lineCap = "round"; g.lineJoin = "round";
+      g.strokeStyle = penColor(n); g.fillStyle = COL.note; g.lineCap = "round"; g.lineJoin = "round";
       if (n.kind === "pen") {
-        g.lineWidth = penWidth(u); g.beginPath();
+        g.lineWidth = penWidth(u, n); g.beginPath();
         n.pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])));
         if (n.pts.length === 1) g.lineTo(n.pts[0][0] + 0.01, n.pts[0][1]);
         g.stroke();
@@ -1878,7 +1896,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { S.sel = null; renderOverlay(); renderPanel(); }
   if (e.key === "ArrowRight" || e.key === "PageDown") showPage(S.cur + 1);
   if (e.key === "ArrowLeft" || e.key === "PageUp") showPage(S.cur - 1);
-  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area", "4": "text", "5": "pen" };
+  const map = { v: "pan", "1": "point", "2": "arrow", "3": "area", "4": "pen" };
   if (map[e.key]) { S.tool = map[e.key]; renderBar(); showHint(); }
 });
 
@@ -1937,6 +1955,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 85bf6c8e46 -->
+<!-- build 358615a6ee -->
 </body>
 </html>
