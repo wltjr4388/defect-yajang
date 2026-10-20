@@ -83,6 +83,8 @@ button { cursor: pointer; }
 .prow .more { flex: none; width: 54px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 22px; line-height: 1; }
 .prow.trashed .prow-open { cursor: default; }
 .prow .acts { display: flex; gap: 6px; align-items: center; padding: 0 10px; border-left: 1px solid var(--line); }
+.ver { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; }
+.ver b { color: var(--ink); }
 .trash { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .trash > summary { padding: 12px 16px; cursor: pointer; color: var(--muted); font-weight: 500; }
 .trash .plist { padding: 0 10px 10px; }
@@ -229,7 +231,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b3f195816b"; window.DY_BUILT = "2026-10-20 18:19";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -714,8 +716,10 @@ async function renderHome() {
           <li>하루가 끝나면 <b>내보내기 → 백업 파일</b>을 한 번 저장해두세요.</li>
         </ol>`}
       </div>
+      ${OFFLINE_APP && window.DY_BUILD ? `<div class="ver"><span>지금 버전 <b class="num">${esc(window.DY_BUILT || "")}</b> <span class="num">(${esc(window.DY_BUILD)})</span></span><button class="btn" id="b-upd">업데이트 확인</button></div>` : ""}
     </div>`;
   $("#b-new").onclick = () => newProjectModal();
+  if ($("#b-upd")) $("#b-upd").onclick = () => checkUpdate($("#b-upd"));
   $("#b-sample").onclick = () => createSample();
   document.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openById(b.dataset.open)));
   const nameOf = (id) => (all.find((r) => r.p.id === id) || { p: {} }).p.name || "";
@@ -726,6 +730,21 @@ async function renderHome() {
     confirmModal("영구 삭제할까요?", `"${name}" 조사와 도면, 결함 표시가 이 기기에서 완전히 지워집니다. 되돌릴 수 없습니다.`, "영구 삭제", async () => { await purgeProject(id); toast("영구 삭제했습니다"); renderHome(); });
   }));
   const tr = document.querySelector(".trash"); if (tr) tr.ontoggle = () => (S.trashOpen = tr.open);
+}
+
+// 홈 화면 앱: GitHub의 version.json과 지금 버전 비교, 다르면 새 버전 받아서 다시 열기
+async function checkUpdate(btn) {
+  if (navigator.onLine === false) { toast("인터넷에 연결된 곳에서 눌러주세요"); return; }
+  btn.disabled = true; btn.textContent = "확인 중…";
+  let v = null;
+  try { const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" }); v = await r.json(); } catch (e) {}
+  btn.disabled = false; btn.textContent = "업데이트 확인";
+  if (!v || !v.build) { toast("버전을 확인하지 못했습니다. 인터넷 연결을 확인해주세요"); return; }
+  if (v.build === window.DY_BUILD) { toast(`최신 버전입니다 (${v.built})`); return; }
+  toast(`새 버전(${v.built})을 받는 중… 잠시 후 다시 열립니다`, 8000);
+  try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) {}
+  // 새 버전이 적용되면 자동으로 다시 열림. 안 되면 직접 새로 열기
+  setTimeout(() => location.reload(), 6000);
 }
 
 /* ---------------- 조사 이름 바꾸기 · 휴지통 ---------------- */
@@ -1957,6 +1976,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 6d9f2002e1 -->
+<!-- build b3f195816b -->
 </body>
 </html>
