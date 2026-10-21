@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1b46a0b83c"; window.DY_BUILT = "2026-10-21 14:15";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "6a9f47c5bc"; window.DY_BUILT = "2026-10-21 14:20";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1853,7 +1853,7 @@ function exportModal() {
     <div class="menu">
       <button class="btn" id="x-pdf">표시된 야장 PDF<small>도면 + 번호 표시</small></button>
       <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
-      <button class="btn" id="x-xlsx">외관조사 결과표 엑셀<small>3종 양식 칸 그대로 · B6:P 복사해 붙여넣기</small></button>
+      <button class="btn" id="x-xlsx">외관조사 결과표 엑셀<small>번호·층·부재·결함유형·규격·사진번호</small></button>
       <div class="chk">층 순서 <span class="chips">${[["top", "최상층부터"], ["bottom", "최하층부터"]].map(([v, nm]) => `<button class="chip" data-ford="${v}" aria-pressed="${(S.proj.prefs.floorOrder || "top") === v}">${nm}</button>`).join("")}</span></div>
       <button class="btn" id="x-json">백업 파일 저장<small>하루 끝에 한 번</small></button>
     </div>
@@ -2261,6 +2261,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 1b46a0b83c -->
+<!-- build 6a9f47c5bc -->
 </body>
 </html>
