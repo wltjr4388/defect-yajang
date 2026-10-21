@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "17cdf56ef6"; window.DY_BUILT = "2026-10-21 18:34";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "a8a84c8a89"; window.DY_BUILT = "2026-10-21 21:08";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -392,6 +392,11 @@ function sizeText(m) { return m.sw || m.sh ? `${m.sw || "?"}×${m.sh || "?"}` : 
 // 장비조사: 점 = 수평부재(보·슬래브), 화살표 = 수직부재(기둥·벽체). 직접 입력한 부재는 양쪽 다 보임
 const isHorizMember = (x) => /보|슬래브/.test(x), isVertMember = (x) => /벽|기둥/.test(x);
 const EQUIP_HMEMBERS = ["바닥 보", "천장 보", "바닥 슬래브", "천장 슬래브"], EQUIP_VMEMBERS = ["벽체", "기둥"];
+// 정리 순서: 같은 층 안에서 기둥 → 벽체 → 슬래브 → 보 (그 밖의 부재는 맨 뒤), 같은 부재는 중앙부 → 단부
+function eqRank(m) {
+  const s = m.member || "", k = /기둥/.test(s) ? 0 : /벽/.test(s) ? 1 : /슬래브/.test(s) ? 2 : /보/.test(s) ? 3 : 4;
+  return k * 3 + (m.pos === "중앙부" ? 0 : m.pos === "단부" ? 1 : 2);
+}
 function eqMemberKeep(m) { const v = m.type === "arrow"; return (x) => (v ? isVertMember(x) : isHorizMember(x)) || (!isHorizMember(x) && !isVertMember(x)); }
 function isEquip(p) { p = p === undefined ? S.proj : p; return FEATURE_EQUIP && !!p && p.kind === "equip"; }
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
@@ -2287,9 +2292,14 @@ function exportModal() {
     ${miss.length ? `<div class="xwarn"><b>⚠ 입력이 빠진 ${noun} ${miss.length}개 <span style="font-weight:400;font-size:12px;color:var(--muted)">· 누르면 그 ${noun}로 이동</span></b>
       <div class="xwl">${miss.map(([m, a]) => `<button data-go="${esc(m.id)}">${esc(floorOf(m) || "층 미지정")} ${esc(m.no)}번<span>${a.join(", ")}</span></button>`).join("")}</div></div>` : ""}
     <div class="xcards">
+      ${eq ? `<section class="xcard">
+        <h4>최종 정리</h4>
+        <p class="xd">조사를 다 마친 뒤 한 번 · 천장 부재를 위층 바닥으로 옮기고, 층마다 기둥→벽체→바닥 슬래브→바닥 보 순으로 번호 정리</p>
+        <button class="btn xgo" id="x-final">최종 정리…</button>
+      </section>` : ""}
       <section class="xcard">
         <h4>야장 PDF</h4>
-        <p class="xd">${eq ? "전체: 현장 번호 + 옆에 항목 번호(R-1 S-1 D-1) · 항목을 고르면 그 항목 위치만 R-1…로" : "도면 위에 결함 번호를 표시한 PDF"}</p>
+        <p class="xd">${eq ? "전체: 현장 번호 + 옆에 항목 번호(R-1 S-1 D-1) · 항목을 고르면 그 항목 위치만 R-1…로" : "도면 위에 결함 번호를 표시한 PDF"} · 쪽은 아래 엑셀과 같은 층 순서</p>
         ${eq ? `<div class="chips">${[["all", "전체"], ...EQUIP_ITEMS.map((it) => [it.key, it.name])].map(([v, nm]) => `<button class="chip" data-pitem="${v}" aria-pressed="${pItem === v}">${nm}</button>`).join("")}</div>` : ""}
         <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 같이 넣기 <span style="color:var(--muted);font-size:13px">(${liveNotes().length}개)</span></label>
         <button class="btn primary xgo" id="x-pdf">PDF 만들기</button>
@@ -2314,6 +2324,7 @@ function exportModal() {
   $("#x-xlsx").onclick = () => runBusy($("#x-xlsx"), eq ? exportEquipXlsx : exportXlsx);
   document.querySelectorAll("[data-pitem]").forEach((b) => (b.onclick = () => { S.proj.prefs.pdfItem = b.dataset.pitem; touch(null); document.querySelectorAll("[data-pitem]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
   $("#x-json").onclick = () => runBusy($("#x-json"), exportJson);
+  if ($("#x-final")) $("#x-final").onclick = finalizeModal;
 }
 /* ---------------- 설정 (톱니바퀴): 도면 추가 · 합치기 · 정리 · 버튼 목록 ---------------- */
 function manageModal() {
@@ -2459,11 +2470,74 @@ async function exportXlsx() {
 }
 
 /* ---------------- 장비조사: 항목 번호 · 엑셀 ---------------- */
-// 층 순서(내보내기 창의 지붕→지하 / 지하→지붕) → 위치 번호 순
+// 층 순서(내보내기 창의 지붕→지하 / 지하→지붕) → 부재 순서(eqRank) → 위치 번호 순
 function equipOrdered() {
   const down = (S.proj.prefs.floorOrder || "top") === "top";
   const fk = (m) => { const k = floorKey(floorOf(m)); return k >= 5000 ? -1e5 : down ? k : -k; };
-  return [...live()].sort((a, b) => (fk(b) - fk(a)) || ((a.no || 0) - (b.no || 0)));
+  return [...live()].sort((a, b) => (fk(b) - fk(a)) || (eqRank(a) - eqRank(b)) || ((a.no || 0) - (b.no || 0)));
+}
+/* 최종 정리: ① 천장 보·천장 슬래브 → 위층 도면 같은 자리의 바닥 보·바닥 슬래브로 옮김
+   ② 층마다 현장 번호를 기둥 → 벽체 → 바닥 슬래브 → 바닥 보 (중앙부 먼저) 순으로 다시 매김 → R/S/D도 그 순서 */
+// 바로 위층 도면 (지하1층 → 1층). 최상층이면 지붕층. 바로 위층 도면이 없으면 건너뛰지 않고 null
+function upperPage(floor) {
+  const k0 = floorKey(floor); if (!floor || k0 >= 900) return null;
+  const want = k0 === -1 ? 1 : k0 + 1, keyOf = (pg) => floorKey(floorOfPage(pg.key));
+  const top = !S.pages.some((pg) => { const k = keyOf(pg); return k > k0 && k < 900; });
+  return S.pages.find((pg) => keyOf(pg) === want) || (top ? S.pages.find((pg) => keyOf(pg) === 950) : null) || null;
+}
+async function pageSize(pg) {
+  const d = await getDoc(pg.fid); if (!d) return null;
+  if (d.kind === "pdf") { const v = (await d.pdf.getPage(pg.i + 1)).getViewport({ scale: 1 }); return [v.width, v.height]; }
+  return [d.w, d.h];
+}
+function finalizePlan() {
+  const moves = [], stuck = [];
+  for (const m of live()) {
+    if (!/^천장 /.test(m.member || "")) continue;
+    const pg = upperPage(floorOf(m));
+    if (pg) moves.push({ m, pg, to: m.member.replace(/^천장 /, "바닥 ") }); else stuck.push(m);
+  }
+  return { moves, stuck };
+}
+function finalizeModal() {
+  const { moves, stuck } = finalizePlan();
+  const grp = new Map();
+  for (const x of moves) { const k = `${floorOf(x.m)} ${x.m.member} → ${floorOfPage(x.pg.key)} ${x.to}`; grp.set(k, (grp.get(k) || 0) + 1); }
+  openModal(`
+    <h3>최종 정리</h3>
+    <p class="sub">조사를 다 마친 뒤 한 번 · 끝나고 되돌리기로 취소할 수 있습니다</p>
+    <div class="fld"><span class="lab">① 천장 부재를 위층 바닥으로</span>
+      ${grp.size ? `<div class="help">${[...grp].map(([k, n]) => `${esc(k)} <b>${n}개</b>`).join("<br>")}<br>위층 도면의 같은 자리로 옮깁니다. 위치가 조금 다르면 옮긴 뒤 끌어서 맞추세요.</div>` : `<div class="help">옮길 천장 부재가 없습니다.</div>`}
+      ${stuck.length ? `<div class="help" style="color:var(--warn)">위층 도면이 없어 그대로 둠: ${stuck.map((m) => `${esc(floorOf(m) || "층 미지정")} ${esc(m.no)}번`).join(", ")}</div>` : ""}</div>
+    <div class="fld"><span class="lab">② 층마다 번호 다시 매기기</span>
+      <div class="help">기둥 → 벽체 → 바닥 슬래브 → 바닥 보 순, 같은 부재는 중앙부 → 단부 · 출력 번호(R-1 S-1 D-1)도 이 순서</div></div>
+    <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="fz-ok">정리하기</button></div>`);
+  $("#fz-ok").onclick = () => runBusy($("#fz-ok"), async () => { await finalizeRun(moves); closeModal(); });
+}
+async function finalizeRun(moves) {
+  pushUndo();
+  const t = now(), pages = new Set(), sizes = new Map();
+  const sizeOf = async (pg) => { if (!sizes.has(pg.key)) sizes.set(pg.key, await pageSize(pg)); return sizes.get(pg.key); };
+  let moved = 0;
+  for (const { m, pg, to } of moves) {
+    const from = S.pages.find((p) => p.key === m.pageKey), a = from && (await sizeOf(from)), b = await sizeOf(pg);
+    if (!a || !b) continue;
+    const sc = (q) => [q[0] * b[0] / a[0], q[1] * b[1] / a[1]];
+    pages.add(m.pageKey); pages.add(pg.key);
+    m.pts = m.pts.map(sc); if (m.lab) m.lab = sc(m.lab);
+    m.pageKey = pg.key; m.member = to; m.no = 1e6 + moved; m.updatedAt = t; moved++;   // 번호는 아래에서 다시 매김
+  }
+  const order = new Map(S.pages.map((p, i) => [p.key, i])), byFloor = new Map();
+  for (const m of live()) { const f = floorOf(m); if (!byFloor.has(f)) byFloor.set(f, []); byFloor.get(f).push(m); }
+  let renum = 0;
+  byFloor.forEach((arr) => {
+    arr.sort((a, b) => (eqRank(a) - eqRank(b)) || ((a.no || 0) - (b.no || 0)) || (order.get(a.pageKey) - order.get(b.pageKey)) || ((a.createdAt || 0) - (b.createdAt || 0)));
+    arr.forEach((m, i) => { if (m.no !== i + 1) { m.no = i + 1; m.updatedAt = t; pages.add(m.pageKey); renum++; } });
+  });
+  pages.forEach((k) => touch(k)); touch(null);
+  S.sel = null; S.multi = null;
+  await showPage(S.cur); renderBar(); renderPanel();
+  toast(`정리했습니다 · 천장 부재 ${moved}개 옮김, 번호 ${renum}개 바뀜 · 되돌리기로 취소할 수 있습니다`, 4500);
 }
 // 그 항목을 한 위치만 골라 R-1, R-2 … (id → 번호)
 function equipLabels(key) {
@@ -2502,23 +2576,25 @@ async function exportPdf() {
   const pick = (key) => (eqLab ? marksOn(key).filter((m) => eqLab.has(m.id)).map((m) => ({ ...m, no: eqLab.get(m.id) })) : marksOn(key));
   const withNotes = S.proj.prefs.printNotes !== false;
   let pagesOut = 0;
-  for (const f of S.proj.files) {
-    const blob = await Local.getBlob(f.fid);
-    if (!blob) continue;
-    const buf = await blob.arrayBuffer();
+  // 쪽 순서: 엑셀과 같은 층 순서(지붕 → 지하 / 지하 → 지붕), 층 미지정 도면은 맨 뒤, 같은 층은 올린 순서
+  const down = (S.proj.prefs.floorOrder || "top") === "top";
+  const fk = (pg) => { const k = floorKey(floorOfPage(pg.key)); return k >= 5000 ? 1e9 : down ? -k : k; };
+  const bufs = new Map(), srcs = new Map();   // 파일마다 한 번만 읽음
+  for (const p of [...S.pages].sort((a, b) => fk(a) - fk(b))) {
+    const f = S.proj.files.find((x) => x.fid === p.fid);
+    if (!bufs.has(f.fid)) { const blob = await Local.getBlob(f.fid); bufs.set(f.fid, blob ? await blob.arrayBuffer() : null); }
+    const buf = bufs.get(f.fid);
+    if (!buf) continue;
     if (f.type === "pdf") {
-      const src = await PDFDocument.load(buf, { ignoreEncryption: true });
-      const copied = await out.copyPages(src, src.getPageIndices());
+      if (!srcs.has(f.fid)) srcs.set(f.fid, await PDFDocument.load(buf, { ignoreEncryption: true }));
+      const i = p.i, [copied] = await out.copyPages(srcs.get(f.fid), [i]);
       const d = await getDoc(f.fid);
-      for (let i = 0; i < copied.length; i++) {
-        const pg = out.addPage(copied[i]);
-        const jp = await d.pdf.getPage(i + 1);
-        const v = jp.getViewport({ scale: 1 });
-        const conv = (x, y) => v.convertToPdfPoint(x, y);
-        await drawLayerPdf(out, pg, `${f.fid}_${i}`, conv, v.width, v.height);
-        drawMarksPdf(pg, pick(`${f.fid}_${i}`), conv, v.rotation || 0, v.width, v.height);
-        pagesOut++;
-      }
+      const pg = out.addPage(copied);
+      const v = (await d.pdf.getPage(i + 1)).getViewport({ scale: 1 });
+      const conv = (x, y) => v.convertToPdfPoint(x, y);
+      await drawLayerPdf(out, pg, p.key, conv, v.width, v.height);
+      drawMarksPdf(pg, pick(p.key), conv, v.rotation || 0, v.width, v.height);
+      pagesOut++;
     } else {
       const img = f.mime === "image/png" ? await out.embedPng(buf) : await out.embedJpg(buf);
       const W = img.width, H = img.height;
@@ -2765,6 +2841,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 17cdf56ef6 -->
+<!-- build a8a84c8a89 -->
 </body>
 </html>
