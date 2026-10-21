@@ -191,7 +191,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .fld.sel-top > .lab { grid-column: 1; grid-row: 1; align-self: center; }
 .fld.sel-top > .sel-line { grid-column: 2; grid-row: 1; }
 #panel .chip, #panel .dtabs button { min-height: 36px; }
-#panel:has(#f-done) { gap: 10px; }
+#panel:has(#f-done) { gap: 8px; }
 .fld.inl { grid-template-columns: 52px minmax(0, 1fr); align-items: center; column-gap: 8px; }
 #panel:has(#f-done) { padding-bottom: 12px; }
 textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
@@ -220,6 +220,14 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
 .chk input { width: 22px; height: 22px; }
 .pfoot { display: flex; gap: 8px; margin-top: 4px; }
 .pfoot .btn { flex: 1; }
+/* 결함 입력창: 위에 요약 한 줄, 항목마다 구분선 + 진한 이름, 삭제는 아래 */
+.ph .meta { font-size: 13px; font-weight: 600; color: var(--muted); align-self: center; white-space: nowrap; }
+.msum { font-size: 14px; line-height: 1.4; color: var(--ink); padding: 6px 10px; border-radius: 8px; background: var(--surface-2); }
+.msum.empty { color: var(--muted); }
+#panel .sec { border-top: 1px solid var(--line); padding-top: 8px; }
+#panel .sec.fld { gap: 4px; }
+#panel .sec .lab { font-size: 14px; color: var(--ink); letter-spacing: 0; }
+.pfoot .btn.del { flex: none; padding: 0 14px; }
 .list { display: grid; gap: 4px; }
 .lrow { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: 100%; min-width: 0; }
 .lrow .n { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--mark); color: var(--mark); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
@@ -279,7 +287,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "4fde53b088"; window.DY_BUILT = "2026-10-21 14:55";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "66d2a6e028"; window.DY_BUILT = "2026-10-21 15:02";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1588,11 +1596,7 @@ function chipsHTML(field, list, val) {
 function memberHTML(val) {
   const base = [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
   const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
-  // 선택 줄: 저장되는 글자처럼 "보+기둥+조적벽체" (× 누르면 그 부재만 빠짐)
-  const full = splitMember(joinMember(ps)), short = joinMember(ps).split("+");
-  const line = full.length ? `선택:` + full.map((v, i) => `<button class="tagx" data-mdel="${esc(v)}" aria-label="${esc(v)} 빼기">${esc(full.length > 1 ? short[i] : v)}<span>×</span></button>`).join(`<span class="tagc">+</span>`) : "선택 없음";
-  return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>
-    <div class="sel-line">${line}</div>`;
+  return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
 }
 // 선택 표시도 저장되는 글자처럼: "미장 박리, 박락" (× 누르면 그 항목만 빠짐)
 function selTags(sel) {
@@ -1606,8 +1610,16 @@ function dtypeHTML(m) {
   const g = gs.find((x) => x.name === S.dtab) || { items: [] };
   return `
     <div class="dtabs" role="tablist">${gs.map((x) => `<button role="tab" data-tab="${esc(x.name)}" aria-selected="${x.name === S.dtab}">${esc(x.name)}${x.items.some((it) => typeOn(sel, it)) ? "<i></i>" : ""}</button>`).join("")}</div>
-    <div class="chips" data-dt>${g.items.map((v) => `<button class="chip" data-t="${esc(v)}" aria-pressed="${typeOn(sel, v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-tadd>+ 직접</button></div>
-    <div class="sel-line">${sel.length ? `선택:` + selTags(sel) : "선택 없음"}</div>`;
+    <div class="chips" data-dt>${g.items.map((v) => `<button class="chip" data-t="${esc(v)}" aria-pressed="${typeOn(sel, v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-tadd>+ 직접</button></div>`;
+}
+// 입력창 맨 위 요약: 부재 · 결함종류 · 폭×길이 ×개수 · #사진 (입력한 것만)
+function markSummary(m) {
+  const wu = widthUnit(m), parts = [];
+  if (m.member) parts.push(esc(m.member));
+  if (m.dtype) parts.push(esc(typeLabel(m.dtype)));
+  if (m.w || m.l) parts.push(esc(`${m.w || "?"}${m.w && wu ? wu : ""}×${m.l || "?"}${m.l ? "m" : ""}`) + (Number(m.count) > 1 ? ` ×${esc(m.count)}` : ""));
+  if (m.photo) parts.push("#" + esc(m.photo));
+  return parts.length ? `<div class="msum">${parts.join(" · ")}</div>` : `<div class="msum empty">부재와 결함종류를 고르세요</div>`;
 }
 function renderPanel() {
   const P = $("#panel");
@@ -1621,12 +1633,13 @@ function renderPanel() {
   const wu = widthUnit(m);
   P.innerHTML = `
     <div class="ph">
-      <div class="t"><span class="eyebrow">${esc(floor || "층 미지정")} · ${KIND_LABEL[m.type]}</span><span class="big"><button class="no-edit" id="f-no">결함 <span class="num">${esc(m.no)}</span><small>번호 바꾸기</small></button></span></div>
-      <button class="btn danger" id="f-del">삭제</button>
+      <span class="big"><button class="no-edit" id="f-no">결함 <span class="num">${esc(m.no)}</span><small>번호 바꾸기</small></button></span>
+      <span class="meta">${esc(floor || "층 미지정")} · ${KIND_LABEL[m.type]}</span>
     </div>
-    <div class="fld sel-top"><span class="lab">부재</span>${memberHTML(m.member)}</div>
-    <div class="fld sel-top"><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
-    <div class="row2 row-wlc">
+    ${markSummary(m)}
+    <div class="fld sec"><span class="lab">부재</span>${memberHTML(m.member)}</div>
+    <div class="fld sec"><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
+    <div class="row2 row-wlc sec">
       <div class="fld"><span class="lab">폭${wu ? `(${wu})` : ""}</span><input class="inp num" id="f-w" inputmode="decimal" autocomplete="off" value="${esc(m.w)}" placeholder="${wu === "m" ? "예: 0.5" : "예: 0.3"}"></div>
       <span class="x">×</span>
       <div class="fld"><span class="lab">길이(m)</span><input class="inp num" id="f-l" inputmode="decimal" autocomplete="off" value="${esc(m.l)}" placeholder="예: 1.5"></div>
@@ -1634,22 +1647,23 @@ function renderPanel() {
         <span class="stepper"><button id="f-cm" aria-label="개수 줄이기">−</button><input class="num" id="f-count" inputmode="numeric" value="${esc(m.count)}"><button id="f-cp" aria-label="개수 늘리기">+</button></span>
       </div>
     </div>
-    <div class="fld"><span class="lab">사진번호</span>
+    <div class="fld sec"><span class="lab">사진번호</span>
       <div class="photo-wrap">
         <button class="btn pm" id="f-pm" aria-label="사진번호 하나 내리기">−</button>
         <input class="inp num" id="f-photo" autocomplete="off" autocapitalize="characters" value="${esc(m.photo)}" placeholder="예: IMG_0123">
         <button class="btn pm" id="f-pp" aria-label="사진번호 하나 올리기">+</button>
-        ${sugg ? `<button class="btn sugg" id="f-sugg">${esc(sugg)}</button>` : ""}
+        ${sugg && sugg !== m.photo ? `<button class="btn sugg" id="f-sugg" aria-label="다음 사진번호 ${esc(sugg)} 넣기">다음 ${esc(sugg)}</button>` : ""}
       </div>
     </div>
-    <div class="fld inl"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
-    <div class="pfoot"><button class="btn primary" id="f-done">완료</button></div>`;
+    <div class="fld inl sec"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
+    <div class="pfoot"><button class="btn danger del" id="f-del">삭제</button><button class="btn primary" id="f-done">완료</button></div>`;
   const upd = (field, v, rerender) => {
     const mm = selMark(); if (!mm) return;
     mm[field] = v; mm.updatedAt = now(); S.redo = []; updateUndoBtns();
     if (field === "member" || field === "dtype") S.lastInput[field] = v;
     touch(mm.pageKey);
     if (rerender) renderPanel();
+    else { const sm = P.querySelector(".msum"); if (sm) sm.outerHTML = markSummary(mm); }   // 칸에 쓰는 중엔 요약만 고침
   };
   const mbox = P.querySelector('.chips[data-field="member"]');
   // 부재: 여러 개 고르면 "보+조적벽체"처럼 합침
@@ -2261,6 +2275,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 4fde53b088 -->
+<!-- build 66d2a6e028 -->
 </body>
 </html>
