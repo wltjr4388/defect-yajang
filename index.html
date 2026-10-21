@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3927fc0391"; window.DY_BUILT = "2026-10-21 14:39";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "0471bfb9d7"; window.DY_BUILT = "2026-10-21 14:44";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1945,7 +1945,6 @@ function sortedRows() {
 const asNum = (v) => (v !== "" && v != null && !isNaN(Number(v)) ? Number(v) : (v ?? ""));
 // 3종 정기점검 양식(외관조사결함표, 사진첩 xlsm)의 '외관조사 결과표'와 같은 칸: 6행부터 B~P
 // → 엑셀에서 B6:P(끝)를 복사해 양식 6행에 붙여넣으면 됨. 표기는 양식에 쓰던 문구로 바꿈
-const F3_PRI = { "건식주입공법": 1, "방청 후 단면복구": 1, "표면처리공법①": 2, "표면처리공법②": 2, "단면복구": 2, "표면처리공법③": 3, "표면처리공법④": 3, "충전공법": 3, "몰탈보수": 3, "도장보수": 3 };
 function f3Floor(f) {
   const s = String(f || "").trim(); let m;
   if ((m = s.match(/^(\d+)층$/))) return { name: "지상" + m[1] + "층", code: m[1] };
@@ -1954,19 +1953,6 @@ function f3Floor(f) {
   if (/지붕|옥상/.test(s)) return { name: "지붕층", code: "R" };
   if (/옥탑/.test(s)) return { name: "옥탑층", code: "PH" };
   return { name: s, code: s };
-}
-// 결함종류 한 개(양식 표기)의 발생원인·보수방안. 구조체(기둥·보·슬래브·RC벽) 균열은 폭 0.3mm로 나눔
-function f3Fix(t, member, w) {
-  const st = !/조적/.test(member) && /기둥|보|슬래브|벽체|처마/.test(member), big = Number(w) >= 0.3;
-  if (/이격/.test(t)) return ["이질재료", "충전공법"];
-  if (/망상/.test(t)) return ["건조수축", st ? "표면처리공법②" : "표면처리공법④"];
-  if (/^미장/.test(t)) return /균열/.test(t) ? ["건조수축", "표면처리공법③"] : ["노후화, 시공불량", "몰탈보수"];
-  if (/균열/.test(t)) return ["건조수축", st ? (big ? "건식주입공법" : "표면처리공법①") : (big ? "충전공법" : "표면처리공법③")];
-  if (/누수/.test(t)) return ["수분유입", "표면처리공법②"];
-  if (/^도장/.test(t)) return ["노후화", "도장보수"];
-  if (/철근/.test(t)) return ["노후화, 시공불량", "방청 후 단면복구"];
-  if (/^콘크리트/.test(t)) return ["노후화, 시공불량", "단면복구"];
-  return ["", ""];
 }
 async function exportXlsx() {
   if (!window.XLSX) throw new Error("엑셀 기능을 불러오지 못했습니다 (인터넷 확인)");
@@ -1988,25 +1974,19 @@ async function exportXlsx() {
     // 수직+수평균열 → 수직, 수평균열 / 접합부 이격 균열 → 이질재료 접합부 이격 / 미장 박리 → 미장박리 (콘크리트는 띄어 씀)
     const defect = typeLabel(m.dtype).replace(/접합부 이격 균열/g, "이질재료 접합부 이격").replace(/(수직|수평|경사)\+/g, "$1, ").replace(/(미장|도장) /g, "$1");
     const each = splitTypes(m.dtype).map((t) => t.replace(/접합부 이격 균열/, "이질재료 접합부 이격").replace(/(미장|도장) /, "$1"));
-    const fixes = each.map((t) => f3Fix(t, member, m.w));
-    const best = fixes.filter((f) => f[1]).sort((a, b) => (F3_PRI[a[1]] || 9) - (F3_PRI[b[1]] || 9))[0] || ["", ""];
-    const cause = [...new Set(fixes.flatMap((f) => (f[0] ? f[0].split(", ") : [])))].join(", ");
     const linear = each.length && each.every((t) => /이격/.test(t) || (/균열/.test(t) && !/망상/.test(t)));
     const unit = !each.length && !m.w && !m.l ? "" : linear ? "m" : "㎡";
     put(`B${r}`, str(fl.code && m.no ? `${fl.code}-${m.no}` : m.no || ""));
     put(`D${r}`, str(fl.name)); put(`E${r}`, str(member));
     put(`F${r}`, str(defect));
-    // 발생원인·보수방안을 정하지 못한 결함유형(직접 입력 등)은 메모 칸에 알림
-    const odd = each.filter((t, k) => !fixes[k][1]), chk = [];
-    if (odd.length) chk.push(`보수방안 직접 확인: ${odd.join(", ")}`);
+    const chk = [];
     put(`G${r}`, num(m.w)); put(`H${r}`, num(m.l)); put(`I${r}`, str(unit)); put(`J${r}`, num(m.count || 1));
     if (unit === "㎡" && widthUnit(m) === "mm" && m.w) chk.push("앱에서 폭을 mm로 입력함 → 너비(m) 확인");
     // 물량: 양식 수식 + 미리 계산한 값 (아이패드 미리보기는 수식을 계산 안 하고 이 값을 보여줌)
     const qty = (() => { const W = Number(m.w) || 0, L = Number(m.l) || 0, C = Number(m.count) || 1, q = (v) => String(Math.round(v * 1e6) / 1e6);
       return unit === "m" ? q(L * C) + "m" : unit === "㎡" ? q(W * L * C) + "㎡" : "-"; })();
     put(`K${r}`, { t: "s", v: qty, f: `IF(I${r}="m",H${r}*J${r}&"m",IF(I${r}="㎡",G${r}*H${r}*J${r}&"㎡",IF(I${r}="EA",J${r}&"EA","-")))` });
-    put(`L${r}`, str(cause)); put(`M${r}`, str(best[1]));
-    if (F3_PRI[best[1]]) put(`N${r}`, { t: "n", v: F3_PRI[best[1]] });
+    // 발생원인·보수방안·우선순위(L·M·N)는 비워 둠: 회사마다 기준이 달라 PC에서 따로 정리
     put(`O${r}`, { t: "n", v: i + 1 }); put(`P${r}`, str(m.photo || ""));
     put(`Q${r}`, str([m.memo, ...chk.map((x) => "※ " + x)].filter(Boolean).join(" / ")));
     r++;
@@ -2261,6 +2241,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 3927fc0391 -->
+<!-- build 0471bfb9d7 -->
 </body>
 </html>
