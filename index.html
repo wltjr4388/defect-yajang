@@ -103,6 +103,12 @@ button { cursor: pointer; }
 .xcard .chk { min-height: 36px; padding: 0; }
 .xcard .xrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .xcard .xgo { justify-self: end; }
+/* 내보내기 전에 빠진 입력 알림 (누르면 그 결함으로 이동) */
+.xwarn { border: 1px solid color-mix(in srgb, var(--mark) 45%, var(--line)); background: color-mix(in srgb, var(--mark) 9%, var(--surface)); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; margin-bottom: 10px; }
+.xwarn b { font-size: 14px; }
+.xwarn .xwl { display: grid; max-height: 150px; overflow-y: auto; }
+.xwarn .xwl button { display: flex; justify-content: space-between; gap: 10px; min-height: 36px; padding: 0 2px; border: 0; border-top: 1px solid color-mix(in srgb, var(--mark) 20%, var(--line)); background: none; color: var(--ink); text-align: left; font-size: 14px; }
+.xwarn .xwl button span { color: var(--mark); font-size: 13px; }
 .checklist ol { margin: 6px 0 0; padding-left: 20px; }
 .checklist b { color: var(--ink); }
 
@@ -287,7 +293,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "402ac4a45d"; window.DY_BUILT = "2026-10-21 15:10";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "cba7586fb1"; window.DY_BUILT = "2026-10-21 15:40";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1867,11 +1873,29 @@ function pagesModal() {
 }
 
 /* ---------------- 내보내기 메뉴 ---------------- */
+// 표시는 있는데 비어 있는 칸 (개수는 비면 1로 셈 → 안 봄)
+function missingOf(m) {
+  const a = [];
+  if (!m.member) a.push("부재");
+  if (!m.dtype) a.push("결함종류");
+  if (!m.w && !m.l) a.push("폭·길이"); else if (!m.w) a.push("폭"); else if (!m.l) a.push("길이");
+  if (!m.photo) a.push("사진번호");
+  return a;
+}
+async function gotoMark(id) {
+  const m = S.proj.marks.find((x) => x.id === id); if (!m) return;
+  const idx = S.pages.findIndex((p) => p.key === m.pageKey);
+  if (idx >= 0 && idx !== S.cur) await showPage(idx);
+  S.sel = m.id; focusMark(m); renderOverlay(); renderPanel();
+}
 function exportModal() {
   const n = live().length;
+  const miss = sortedRows().map((m) => [m, missingOf(m)]).filter(([, a]) => a.length);
   openModal(`
     <h3>내보내기</h3>
     <p class="sub">${esc(S.proj.name)} · 결함 ${n}개</p>
+    ${miss.length ? `<div class="xwarn"><b>⚠ 입력이 빠진 결함 ${miss.length}개 <span style="font-weight:400;font-size:12px;color:var(--muted)">· 누르면 그 결함으로 이동</span></b>
+      <div class="xwl">${miss.map(([m, a]) => `<button data-go="${esc(m.id)}">${esc(floorOf(m) || "층 미지정")} ${esc(m.no)}번<span>${a.join(", ")}</span></button>`).join("")}</div></div>` : ""}
     <div class="xcards">
       <section class="xcard">
         <h4>야장 PDF</h4>
@@ -1894,6 +1918,7 @@ function exportModal() {
     <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
   $("#x-notes").onchange = (e) => { S.proj.prefs.printNotes = e.target.checked; touch(null); };
   document.querySelectorAll("[data-ford]").forEach((b) => (b.onclick = () => { S.proj.prefs.floorOrder = b.dataset.ford; touch(null); document.querySelectorAll("[data-ford]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
+  document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { closeModal(); gotoMark(b.dataset.go); }));
   $("#x-pdf").onclick = () => runBusy($("#x-pdf"), exportPdf);
   $("#x-xlsx").onclick = () => runBusy($("#x-xlsx"), exportXlsx);
   $("#x-json").onclick = () => runBusy($("#x-json"), exportJson);
@@ -2275,6 +2300,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 402ac4a45d -->
+<!-- build cba7586fb1 -->
 </body>
 </html>
