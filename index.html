@@ -245,7 +245,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b270ed1ccd"; window.DY_BUILT = "2026-10-21 10:23";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3979abd11a"; window.DY_BUILT = "2026-10-21 10:24";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -265,9 +265,9 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const OFFLINE_APP = !!window.DY_OFFLINE; // 홈 화면 앱(GitHub Pages) 빌드에서만 true
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = window.DY_WORKER_SRC || "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "계단 슬래브"];
+const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "바닥 슬래브", "계단 슬래브"];
 // 부재 여러 개 고르면 "+"로 합침: 슬래브 → 보 → 기둥 → 벽체 → 조적벽체 순, 합칠 때 "천장 보"는 "보"로 줄임 (예: 보+기둥+조적벽체)
-const MEMBER_ORDER = ["천장 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체", "조적벽체"];
+const MEMBER_ORDER = ["천장 슬래브", "바닥 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체", "조적벽체"];
 // 결함종류는 분류 탭으로 묶음. 균열은 하나로 저장: 수직·수평·경사는 여러 개 고르면 "수직+수평균열"로 합침
 const DEFAULT_GROUPS = [
   { name: "균열", items: ["수직균열", "수평균열", "경사균열", "접합부 이격 균열", "망상균열"] },
@@ -2104,6 +2104,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build b270ed1ccd -->
+<!-- build 3979abd11a -->
 </body>
 </html>
