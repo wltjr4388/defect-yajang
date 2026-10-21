@@ -245,7 +245,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "cdf04a6262"; window.DY_BUILT = "2026-10-21 10:06";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "70e854f87f"; window.DY_BUILT = "2026-10-21 10:16";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -269,7 +269,7 @@ const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천�
 // 결함종류는 분류 탭으로 묶음. 균열은 하나로 저장: 수직·수평·경사는 여러 개 고르면 "수직+수평균열"로 합침
 const DEFAULT_GROUPS = [
   { name: "균열", items: ["수직균열", "수평균열", "경사균열", "접합부 이격 균열", "망상균열"] },
-  { name: "누수", items: ["누수흔적"] },
+  { name: "누수", items: ["누수", "누수흔적"] },
   { name: "미장", items: ["미장 들뜸", "미장 박리", "미장 박락"] },
   { name: "도장", items: ["도장 열화", "도장 박리", "도장 박락"] },
   { name: "콘크리트", items: ["콘크리트 박리", "콘크리트 박락", "철근노출"] },
@@ -419,12 +419,26 @@ const CRACK_DIRS = ["수직", "수평", "경사"];
 function crackDirs(t) { return /^(수직|수평|경사)(\+(수직|수평|경사))*균열$/.test(t) ? t.slice(0, -2).split("+") : null; }
 function crackName(dirs) { return CRACK_DIRS.filter((d) => dirs.includes(d)).join("+") + "균열"; }
 function sizeFactor() { return (S.proj && S.proj.prefs && S.proj.prefs.size) || 1; }
-// 결함종류는 "수직균열, 미장 박리"처럼 쉼표로 이어 저장
-function splitTypes(s) { return String(s || "").split(",").map((x) => x.trim()).filter(Boolean); }
+// 결함종류는 "수직균열, 미장 박리, 박락"처럼 쉼표로 이어 저장 (앞말이 같으면 뒤에선 뺌: 미장 박리 + 미장 박락 → 미장 박리, 박락)
+function knownType(t) { return groups().some((g) => g.items.includes(t)); }
+function splitTypes(s) {
+  let head = "";
+  return String(s || "").split(",").map((x) => x.trim()).filter(Boolean).map((x) => {
+    if (!x.includes(" ") && head && !knownType(x) && knownType(head + " " + x)) return head + " " + x;
+    head = x.includes(" ") ? x.split(" ")[0] : "";
+    return x;
+  });
+}
+function typeLabel(s) { return joinTypes(splitTypes(s)); }
 function joinTypes(arr) {
   const order = new Map(); groups().forEach((g, gi) => g.items.forEach((it, ii) => order.set(it, gi * 1000 + ii)));
   const key = (t) => { const d = crackDirs(t); if (d && !order.has(t)) t = d[0] + "균열"; return order.has(t) ? order.get(t) : 1e9; };
-  return [...new Set(arr)].sort((a, b) => key(a) - key(b)).join(", ");
+  let head = "";
+  return [...new Set(arr)].sort((a, b) => key(a) - key(b)).map((x) => {
+    const i = x.indexOf(" "), h = i > 0 ? x.slice(0, i) : "", rest = x.slice(i + 1);
+    const short = h && h === head && knownType(x) && !rest.includes(" ") && !knownType(rest);
+    head = h; return short ? rest : x;
+  }).join(", ");
 }
 function groupOf(t) { const g = groups().find((x) => x.items.includes(t)); return g ? g.name : crackDirs(t) ? SINGLE_GROUP : ""; }
 // 버튼 눌림: 고른 게 "수직+수평균열"이면 수직균열·수평균열 버튼이 눌림
@@ -1635,7 +1649,7 @@ function renderPageSummary(P) {
     </div>
     ${ms.length ? `<div class="list">${ms.map((m) => `
       <button class="lrow" data-sel="${m.id}"><span class="n">${esc(m.no)}</span>
-        <span class="d">${esc(m.member || "부재?")} ${esc(m.dtype || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
+        <span class="d">${esc(m.member || "부재?")} ${esc(typeLabel(m.dtype) || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>
       </button>`).join("")}</div>` : ""}
     <p class="help">
@@ -1803,7 +1817,7 @@ async function exportXlsx() {
   const pageName = new Map(S.pages.map((p) => [p.key, p.name + ((S.proj.files.find((f) => f.fid === p.fid) || {}).pageCount > 1 ? ` p.${p.i + 1}` : "")]));
   // 폭 단위: 균열이 있으면 mm, 박리·누수 등만 있으면 m. 길이는 항상 m
   const rows = sortedRows().map((m) => ({
-    "층": floorOf(m), "번호": m.no, "부재": m.member, "결함종류": m.dtype,
+    "층": floorOf(m), "번호": m.no, "부재": m.member, "결함종류": typeLabel(m.dtype),
     "폭": asNum(m.w), "길이(m)": asNum(m.l), "단위": m.w || m.l ? (widthUnit(m) === "mm" ? "mm×m" : "m×m") : "", "개수": asNum(m.count), "사진번호": m.photo,
     "메모": m.memo, "표시": KIND_LABEL[m.type], "도면": pageName.get(m.pageKey) || "",
   }));
@@ -2072,6 +2086,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build cdf04a6262 -->
+<!-- build 70e854f87f -->
 </body>
 </html>
