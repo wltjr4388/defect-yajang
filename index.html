@@ -255,7 +255,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "4496038da1"; window.DY_BUILT = "2026-10-21 11:40";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "440a4f90ce"; window.DY_BUILT = "2026-10-21 11:42";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -967,7 +967,7 @@ function renderBar() {
   $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
   $("#t-finger").onclick = () => { const v = fingerMode() === "pan" ? "draw" : "pan"; setFingerMode(v); renderBar(); toast(v === "pan" ? "손가락은 이동·확대만 합니다 · 표시는 펜슬로" : "손가락으로 표시합니다 · 이동은 두 손가락"); };
-  document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
+  document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; palOpen = false; palSlot = -1; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
   renderPenBar();
 }
@@ -1139,7 +1139,10 @@ function penStyle() { return (S.proj && S.proj.prefs && S.proj.prefs.pen) || { c
 // 색상표: 무채색 1줄 + 색상 12개 × 밝기 8단계
 const hslHex = (h, s, l) => { s /= 100; l /= 100; const f = (n) => { const k = (n + h / 30) % 12, c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c * 255).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
 const PALETTE = [20, 30, 40, 50, 60, 70, 80, 90].map((l, r) => [hslHex(0, 0, r === 0 ? 0 : (r * 100) / 7), ...Array.from({ length: 12 }, (_, i) => hslHex(i * 30, 90, l))]);
-let palOpen = false, palSlot = -1, heldAt = 0;   // palSlot: 색을 바꾸는 중인 기본 색 칸 (길게 눌러서)
+let palOpen = false, palSlot = -1, heldAt = 0;
+// 펜 줄·펜 옵션 밖을 누르면 (도면 이동, 다른 버튼 등) 색상표는 닫음. 펜 줄 안 누름은 펜 줄이 막아서 여기 안 옴
+document.addEventListener("pointerdown", (e) => { if ((palOpen || palSlot >= 0) && !(e.target.closest && e.target.closest(".pen-opts"))) closePalette(); });
+function closePalette() { if (!palOpen && palSlot < 0) return; palOpen = false; palSlot = -1; renderPenBar(); if (document.querySelector("#panel .palette")) renderPanel(); }   // palSlot: 색을 바꾸는 중인 기본 색 칸 (길게 눌러서)
 // 기본 펜 색 5칸은 바꿀 수 있음 (이 태블릿에 저장, 모든 조사에 같이 씀)
 function penColors() {
   let cs = null; try { cs = JSON.parse(localStorage.getItem("dy-pen-colors")); } catch (e) {}
@@ -2171,6 +2174,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 4496038da1 -->
+<!-- build 440a4f90ce -->
 </body>
 </html>
