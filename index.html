@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c30d2bf157"; window.DY_BUILT = "2026-10-21 15:59";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b2c9f6d4f3"; window.DY_BUILT = "2026-10-21 16:00";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1184,7 +1184,8 @@ function labelSVG(m, col, u) {
   const [lx, ly] = labelPos(m, u);
   const t = String(m.no ?? "");
   const fs = u * (t.length >= 3 ? 0.8 : t.length === 2 ? 0.95 : 1.1);
-  return `<g><circle cx="${lx}" cy="${ly}" r="${r}" fill="#fff" stroke="${col}" stroke-width="${sw}"/><text x="${lx}" y="${ly}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" fill="${col}" text-anchor="middle" dominant-baseline="central">${esc(t)}</text></g>`;
+  // 숫자 높이(≈0.72em)의 반만큼 내려 기준선을 잡음: dominant-baseline="central"은 글자 칸 가운데라 아이패드에서 숫자가 치우쳐 보임 (PDF도 0.72로 맞춤)
+  return `<g><circle cx="${lx}" cy="${ly}" r="${r}" fill="#fff" stroke="${col}" stroke-width="${sw}"/><text x="${lx}" y="${ly + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" fill="${col}" text-anchor="middle">${esc(t)}</text></g>`;
 }
 function handleSVG(at) {
   const k = S.base * S.z;
@@ -2328,6 +2329,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build c30d2bf157 -->
+<!-- build b2c9f6d4f3 -->
 </body>
 </html>
