@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "079436b418"; window.DY_BUILT = "2026-10-21 16:36";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "f81dca4b57"; window.DY_BUILT = "2026-10-21 16:51";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -422,29 +422,30 @@ async function initCaps() {
 
 async function saveFile(filename, data) {
   if (Cloud.dl) {
-    try { await Cloud.dl.save({ filename, data }); toast("저장했습니다: " + filename); }
+    try { await Cloud.dl.save({ filename, data }); toast("저장했습니다: " + filename); return true; }
     catch (e) {
       const c = e && e.code;
       if (c === "declined") toast("저장을 취소했습니다");
       else if (c === "rate_limited") toast("저장 창이 이미 열려 있습니다. 잠시 후 다시 눌러주세요");
       else toast("파일 저장 실패: " + ((e && e.message) || c || e));
     }
-    return;
+    return false;
   }
-  if (window.claude && !Cloud.ready) { toast("준비 중입니다. 잠시 후 다시 눌러주세요"); return; }
+  if (window.claude && !Cloud.ready) { toast("준비 중입니다. 잠시 후 다시 눌러주세요"); return false; }
   const blob = data instanceof Blob ? data : new Blob([data]);
   // 아이패드: 공유 시트로 저장 ("파일에 저장" 또는 카톡 전송)
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (isIOS && navigator.canShare) {
     try {
       const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
-      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); toast("저장했습니다: " + filename); return; }
-    } catch (e) { if (e && e.name === "AbortError") { toast("저장을 취소했습니다"); return; } }
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); toast("저장했습니다: " + filename); return true; }
+    } catch (e) { if (e && e.name === "AbortError") { toast("저장을 취소했습니다"); return false; } }
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = filename;
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  return true;
 }
 
 /* ---------------- 상태 ---------------- */
@@ -579,7 +580,7 @@ function buildPages() {
   for (const f of S.proj.files) for (let i = 0; i < (f.pageCount || 1); i++) S.pages.push({ fid: f.fid, i, key: `${f.fid}_${i}`, name: nfc(f.name) });
 }
 function metaOf(p) {
-  return { id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt, files: p.files.map((f) => ({ fid: f.fid, name: f.name, type: f.type, mime: f.mime || "", pageCount: f.pageCount || 1, assetId: f.assetId || null })), floors: p.floors || {}, photoRanges: p.photoRanges || {}, prefs: p.prefs || {}, trashedAt: p.trashedAt || 0 };
+  return { id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt, files: p.files.map((f) => ({ fid: f.fid, name: f.name, type: f.type, mime: f.mime || "", pageCount: f.pageCount || 1, assetId: f.assetId || null })), floors: p.floors || {}, photoRanges: p.photoRanges || {}, prefs: p.prefs || {}, trashedAt: p.trashedAt || 0, lastBackupAt: p.lastBackupAt || 0 };
 }
 
 /* ---------------- 저장 스케줄 ---------------- */
@@ -781,7 +782,25 @@ async function openProject(p) {
   requestWake();
   if (Cloud.db) { pullCloud(p.id, true).then(() => scheduleCloud(800)); }
 }
+function needsBackup(p) {
+  if (!p || !p.marks || !p.marks.some((m) => !m.deleted)) return false;
+  if ((p.lastBackupAt || 0) >= (p.updatedAt || 0)) return false;   // 백업 뒤로 바뀐 게 없음
+  const day = new Date().toDateString(), k = "dy-remind-" + p.id;
+  try { if (localStorage.getItem(k) === day) return false; localStorage.setItem(k, day); } catch (e) {}
+  return !p.lastBackupAt || new Date(p.lastBackupAt).toDateString() !== day;
+}
 function goHome() {
+  if (needsBackup(S.proj)) {
+    openModal(`<h3>오늘 백업을 아직 안 했습니다</h3>
+      <p style="margin:0;line-height:1.6">조사 내용은 이 태블릿 안에만 있습니다. 백업 파일(도면 포함)을 저장해 두면 태블릿이 지워져도 홈 → <b>백업 파일로 복원</b>으로 되살릴 수 있습니다.</p>
+      <div class="sheet-foot"><button class="btn ghost" id="bk-later">나중에</button><button class="btn primary" id="bk-now">지금 저장</button></div>`);
+    $("#bk-later").onclick = () => { closeModal(); leaveToHome(); };
+    $("#bk-now").onclick = async () => { $("#bk-now").disabled = true; $("#bk-now").textContent = "만드는 중…"; await exportJson(); closeModal(); leaveToHome(); };
+    return;
+  }
+  leaveToHome();
+}
+function leaveToHome() {
   flushLocal(); pushCloud();
   S.view = "home"; S.proj = null; S.pi = null; docCache.clear();
   $("#work").hidden = true; $("#home").hidden = false;
@@ -799,7 +818,7 @@ async function renderHome() {
   const all = [...map.values()].sort((a, b) => (b.p.updatedAt || 0) - (a.p.updatedAt || 0));
   const rows = all.filter((r) => !r.p.trashedAt);
   const trashed = all.filter((r) => r.p.trashedAt).sort((a, b) => b.p.trashedAt - a.p.trashedAt);
-  const meta = (p) => `도면 ${(p.files || []).length}개${p.marks ? ` · 결함 ${p.marks.filter((m) => !m.deleted).length}개` : ""}`;
+  const meta = (p) => `도면 ${(p.files || []).length}개${p.marks ? ` · 결함 ${p.marks.filter((m) => !m.deleted).length}개` : ""} · ${p.lastBackupAt ? `백업 ${fmtDate(p.lastBackupAt).slice(5)}` : `<span style="color:var(--warn)">백업 안 함</span>`}`;
   const icon = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 20 L11 13"/><circle cx="15" cy="9" r="5"/><text x="15" y="12.3" font-size="8" fill="#fff" stroke="none" text-anchor="middle" font-family="sans-serif" font-weight="700">1</text></svg>`;
   $("#home").innerHTML = `
     <div class="home-inner">
@@ -810,6 +829,8 @@ async function renderHome() {
         <div class="actions">
           <button class="btn primary" id="b-new">새 조사 시작</button>
           <button class="btn" id="b-sample">예시 도면으로 연습</button>
+          <label class="btn" for="b-restore" style="cursor:pointer">백업 파일로 복원</label>
+          <input type="file" id="b-restore" accept=".json,application/json" hidden>
         </div>
       </div>
       <div>
@@ -838,7 +859,7 @@ async function renderHome() {
         <b>현장 나가기 전에</b>
         ${OFFLINE_APP ? `<ol>
           <li>처음 한 번은 인터넷이 될 때 열고 <b>홈 화면에 추가</b>하세요. 그 뒤로는 인터넷 없이 아이콘으로 열립니다.</li>
-          <li>조사와 도면은 이 태블릿 안에만 저장됩니다. 하루가 끝나면 <b>내보내기 → 백업 파일</b>을 꼭 저장하세요.</li>
+          <li>조사와 도면은 이 태블릿 안에만 저장됩니다. 하루가 끝나면 <b>내보내기 → 백업 저장</b>을 꼭 하세요. 백업 파일에는 도면도 들어 있어서 <b>백업 파일로 복원</b>으로 조사 전체를 되살릴 수 있습니다.</li>
           <li>두 명이 나눠서 했다면 한 태블릿에서 <b>설정(톱니바퀴) → 백업 파일 불러와 합치기</b>로 합칩니다. 같은 도면 파일로 조사를 만들어야 합니다.</li>
         </ol>` : `<ol>
           <li>사무실에서 조사를 만들고 도면을 미리 올려두세요. 현장에 인터넷이 없어도 이어서 쓸 수 있습니다.</li>
@@ -851,6 +872,7 @@ async function renderHome() {
   $("#b-new").onclick = () => newProjectModal();
   if ($("#b-upd")) $("#b-upd").onclick = () => checkUpdate($("#b-upd"));
   $("#b-sample").onclick = () => createSample();
+  $("#b-restore").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) restoreBackup(f); };
   document.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openById(b.dataset.open)));
   const nameOf = (id) => (all.find((r) => r.p.id === id) || { p: {} }).p.name || "";
   document.querySelectorAll("[data-more]").forEach((b) => (b.onclick = () => projectMenu(b.dataset.more, nameOf(b.dataset.more))));
@@ -2001,7 +2023,7 @@ function exportModal() {
       </section>
       <section class="xcard">
         <h4>백업 파일</h4>
-        <p class="xd">조사 전체를 파일 하나로 · 하루 끝에 한 번 저장</p>
+        <p class="xd">도면까지 조사 전체를 파일 하나로 · 하루 끝에 한 번${S.proj.lastBackupAt ? ` · 마지막 ${fmtDate(S.proj.lastBackupAt).slice(5)}` : ""}</p>
         <button class="btn xgo" id="x-json">백업 저장</button>
       </section>
     </div>
@@ -2276,10 +2298,31 @@ async function exportPdf() {
 }
 
 /* ---------------- 백업 파일 ---------------- */
+// 백업 파일 = 조사 + 결함·메모 + 도면 파일(base64). 파일 하나로 다른 태블릿·지워진 태블릿에서도 조사 전체를 되살림 (version 3)
+const blobToB64 = (b) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1] || ""); fr.onerror = rej; fr.readAsDataURL(b); });
+const b64ToBlob = (s, type) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type }); };
 async function exportJson() {
-  const data = { format: "defect-yajang", version: 2, savedAt: now(), project: metaOf(S.proj), marks: S.proj.marks, notes: S.proj.notes || [] };
+  const files = [];
+  for (const f of S.proj.files) { const b = await Local.getBlob(f.fid); if (b) files.push({ fid: f.fid, mime: b.type || f.mime || "", data: await blobToB64(b) }); }
+  const data = { format: "defect-yajang", version: 3, savedAt: now(), project: metaOf(S.proj), marks: S.proj.marks, notes: S.proj.notes || [], files };
   const d = new Date(); const p = (n) => String(n).padStart(2, "0");
-  await saveFile(`${S.proj.name}_백업_${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`, JSON.stringify(data));
+  const ok = await saveFile(`${S.proj.name}_백업_${String(d.getFullYear()).slice(2)}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`, JSON.stringify(data));
+  if (ok && S.proj) { S.proj.lastBackupAt = now(); await flushLocal(); }
+  return ok;
+}
+// 홈: 백업 파일로 조사 통째로 되살리기. 같은 조사가 이미 있으면 '(복원)' 사본으로 만듦 (기존 것은 안 건드림)
+async function restoreBackup(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch (e) { toast("백업 파일을 읽을 수 없습니다"); return; }
+  if (!data || data.format !== "defect-yajang" || !data.project) { toast("결함 야장 백업 파일이 아닙니다"); return; }
+  if (!data.files || !data.files.length) { toast("도면이 들어 있지 않은 예전 백업입니다. 같은 도면으로 새 조사를 만든 뒤 설정 → 백업 파일 불러와 합치기를 쓰세요", 7000); return; }
+  for (const f of data.files) await Local.putBlob(f.fid, b64ToBlob(f.data, f.mime));
+  const exists = await Local.getProject(data.project.id);
+  const p = { ...data.project, marks: data.marks || [], notes: data.notes || [], trashedAt: 0, lastBackupAt: data.savedAt || 0, updatedAt: now() };
+  if (exists && !exists.trashedAt) { p.id = uid(); p.name = `${p.name} (복원)`; }
+  await Local.putProject(p);
+  toast(`"${p.name}" 조사를 되살렸습니다 · 결함 ${p.marks.filter((m) => !m.deleted).length}개`, 4000);
+  renderHome();
 }
 async function importJson(file) {
   let data;
@@ -2394,6 +2437,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 079436b418 -->
+<!-- build f81dca4b57 -->
 </body>
 </html>
