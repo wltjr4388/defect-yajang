@@ -321,7 +321,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b94c6a6d64"; window.DY_BUILT = "2026-10-21 17:40";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "8db14afcce"; window.DY_BUILT = "2026-10-21 17:46";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -361,8 +361,8 @@ const KIND_LABEL = { point: "점", arrow: "화살표", area: "영역" };
 const NOTE_LABEL = { text: "글씨 메모", pen: "펜 메모" };
 const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8", equip: "#0a7f8c" };
 /* ---------- 장비조사 (회사용 기능: 판매용 빌드에선 FEATURE_EQUIP = false 로 통째로 빠짐) ----------
-   조사 위치 하나에 번호 원 하나, 번호는 건물 전체에서 이어감. 위치마다 조사 항목을 체크하고,
-   내보낼 때 항목별로 다시 번호를 붙임 (철근배근 R-1…, 압축강도 S-1…, 부재규격 D-1…) */
+   조사 위치 하나에 번호 원 하나, 현장 번호는 결함처럼 층마다 1번부터. 위치마다 조사 항목을 체크하고,
+   내보낼 때 항목별로 건물 전체를 이어서 다시 번호를 붙임 (철근배근 R-1…, 압축강도 S-1…, 부재규격 D-1…) */
 const FEATURE_EQUIP = true;
 const EQUIP_ITEMS = [
   { key: "rebar", name: "철근배근", short: "철", prefix: "R-" },
@@ -592,7 +592,7 @@ function floorOf(m) { return floorOfPage(m.pageKey); }
 function marksOn(k) { return live().filter((m) => m.pageKey === k).sort((a, b) => (a.no || 0) - (b.no || 0)); }
 function nextNo(floor, exceptPage) {
   let mx = 0;
-  for (const m of live()) if ((isEquip() || floorOf(m) === floor) && m.pageKey !== exceptPage) mx = Math.max(mx, m.no || 0);
+  for (const m of live()) if (floorOf(m) === floor && m.pageKey !== exceptPage) mx = Math.max(mx, m.no || 0);
   return mx + 1;
 }
 function nextPhoto(base) {
@@ -866,7 +866,7 @@ async function renderHome() {
       ${FEATURE_EQUIP ? `<div class="dtabs htabs" role="tablist">${[["defect", "결함 야장", COL.mark], ["equip", "장비 야장", COL.equip]].map(([v, nm, c]) => `<button role="tab" data-htab="${v}" aria-selected="${tab === v}"><span class="kdot" style="background:${c}"></span>${nm}</button>`).join("")}</div>` : ""}
       <div class="intro">
         ${tab === "equip" ? `<h1>도면 위에 조사 위치를 찍고, 항목별 위치도와 목록을 뽑습니다</h1>
-        <p>위치마다 철근배근·압축강도·부재규격을 체크하세요. 번호는 건물 전체에서 이어지고, 내보낼 때 항목별로 R-1·S-1·D-1로 다시 붙습니다.</p>` : `<h1>도면 위에 결함을 찍고, 목록과 야장을 바로 뽑습니다</h1>
+        <p>위치마다 철근배근·압축강도·부재규격을 체크하세요. 번호는 층마다 1번부터 붙고, 엑셀·항목별 PDF로 내보낼 때 건물 전체를 이어서 R-1·S-1·D-1로 다시 붙습니다.</p>` : `<h1>도면 위에 결함을 찍고, 목록과 야장을 바로 뽑습니다</h1>
         <p>PDF나 사진 도면을 올리고 점·화살표·영역으로 결함 위치를 표시하세요. 번호는 층마다 자동으로 붙고, 부재·결함종류는 버튼으로 고릅니다. 끝나면 표시된 야장 PDF와 결함 목록 엑셀로 내보냅니다.</p>`}
         <div class="actions">
           <button class="btn primary" id="b-new">${tab === "equip" ? "새 장비조사" : "새 조사 시작"}</button>
@@ -1980,7 +1980,7 @@ function numberModal(m) {
   $("#nm-m").onclick = () => { inp.value = Math.max(1, (val() || 1) - 1); $("#nm-ask").innerHTML = ""; };
   $("#nm-p").onclick = () => { inp.value = (val() || 0) + 1; $("#nm-ask").innerHTML = ""; };
   inp.oninput = () => ($("#nm-ask").innerHTML = "");
-  const others = () => live().filter((x) => x.id !== m.id && (isEquip() || floorOf(x) === floor));
+  const others = () => live().filter((x) => x.id !== m.id && floorOf(x) === floor);
   const done = (changed) => { const t = now(); changed.forEach((x) => { x.updatedAt = t; touch(x.pageKey); }); closeModal(); renderOverlay(); renderPanel(); };
   $("#nm-ok").onclick = () => {
     const n = val();
@@ -1989,7 +1989,7 @@ function numberModal(m) {
     const hit = others().find((x) => x.no === n);
     if (!hit) { pushUndo(); m.no = n; done([m]); return; }
     $("#nm-ask").innerHTML = `
-      <p style="margin:0 0 8px;line-height:1.6">${isEquip() ? "" : esc(floor) + "에 "}이미 <b>${n}번</b>이 있습니다.</p>
+      <p style="margin:0 0 8px;line-height:1.6">${esc(floor)}에 이미 <b>${n}번</b>이 있습니다.</p>
       <div class="menu">
         <button class="btn" id="nm-swap">서로 바꾸기<small>${esc(m.no)}번 ↔ ${n}번</small></button>
         <button class="btn" id="nm-ins">끼워 넣기<small>${n}번 자리에 넣고 사이 번호를 하나씩 밀기</small></button>
@@ -2031,7 +2031,7 @@ function renderPageSummary(P) {
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>`}
       </button>`).join("")}</div>` : ""}
     <p class="help">
-      ${isEquip() ? "<b>위치·화살표</b> 조사 위치를 찍고 부재와 조사 항목(철근배근·압축강도·부재규격)을 체크합니다. 번호는 건물 전체에서 이어지고, 내보낼 때 항목별로 R-1·S-1·D-1로 다시 붙습니다.<br>" : ""}<b>점·화살표</b> 결함 위치를 한 번 찍으면 점(화살표 도구면 화살표)이 생기고, 찍은 채로 끌면 번호가 끈 곳으로 갑니다.<br>
+      ${isEquip() ? "<b>위치·화살표</b> 조사 위치를 찍고 부재와 조사 항목(철근배근·압축강도·부재규격)을 체크합니다. 번호는 층마다 1번부터 붙고, 내보낼 때 항목별로 건물 전체를 이어서 R-1·S-1·D-1로 다시 붙습니다.<br>" : ""}<b>점·화살표</b> 결함 위치를 한 번 찍으면 점(화살표 도구면 화살표)이 생기고, 찍은 채로 끌면 번호가 끈 곳으로 갑니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기는 도면 위쪽 펜 줄에서 고릅니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 표시는 애플펜슬·S펜으로 하고, 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 표시하려면 설정(톱니바퀴) → 손가락에서 바꾸세요(그때 이동은 두 손가락).
@@ -2074,7 +2074,7 @@ function setFloor(pageKey, f) {
   const old = floorOfPage(pageKey);
   if (old === f) return;
   S.proj.floors[pageKey] = f;
-  const ms = isEquip() ? [] : marksOn(pageKey);   // 장비 번호는 층과 무관
+  const ms = marksOn(pageKey);
   if (ms.length) {
     let n = nextNo(f, pageKey) - 1;
     for (const m of ms.sort((a, b) => (a.no || 0) - (b.no || 0))) { m.no = ++n; m.updatedAt = now(); }
@@ -2178,7 +2178,7 @@ function manageModal() {
       <label class="btn" for="x-import" style="cursor:pointer">백업 파일 불러와 합치기<small>다른 태블릿 작업분</small></label>
       <input type="file" id="x-import" accept=".json,application/json" hidden>
       ${Cloud.db ? `<button class="btn" id="x-pull">클라우드에서 새로 받기<small>다른 기기 작업분</small></button>` : ""}
-      <button class="btn" id="x-renum">${isEquip() ? "번호 다시 매기기" : "층별 번호 다시 매기기"}<small>삭제로 빈 번호 정리</small></button>
+      <button class="btn" id="x-renum">층별 번호 다시 매기기<small>삭제로 빈 번호 정리</small></button>
     </div>
     <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
   $("#x-import").onchange = (e) => { const f = e.target.files[0]; if (f) importJson(f); };
@@ -2227,7 +2227,7 @@ function renumberAll() {
   pushUndo();
   const order = new Map(S.pages.map((p, i) => [p.key, i]));
   const byFloor = new Map();
-  for (const m of live()) { const f = isEquip() ? "" : floorOf(m); if (!byFloor.has(f)) byFloor.set(f, []); byFloor.get(f).push(m); }
+  for (const m of live()) { const f = floorOf(m); if (!byFloor.has(f)) byFloor.set(f, []); byFloor.get(f).push(m); }
   const t = now(); const pages = new Set();
   byFloor.forEach((arr) => {
     arr.sort((a, b) => (order.get(a.pageKey) - order.get(b.pageKey)) || ((a.no || 0) - (b.no || 0)) || ((a.createdAt || 0) - (b.createdAt || 0)));
@@ -2235,7 +2235,7 @@ function renumberAll() {
   });
   pages.forEach((k) => touch(k));
   renderOverlay(); renderPanel(); renderBar();
-  toast(pages.size ? (isEquip() ? "번호를 다시 매겼습니다" : "층별 번호를 다시 매겼습니다") : "번호가 이미 정리되어 있습니다");
+  toast(pages.size ? "층별 번호를 다시 매겼습니다" : "번호가 이미 정리되어 있습니다");
 }
 
 /* ---------------- 내보내기: 엑셀 ---------------- */
@@ -2595,6 +2595,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build b94c6a6d64 -->
+<!-- build 8db14afcce -->
 </body>
 </html>
