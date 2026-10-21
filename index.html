@@ -127,6 +127,13 @@ button { cursor: pointer; }
 #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; box-shadow: 0 2px 14px rgba(0,0,0,.18); background: #fff; }
 #cv, #ov { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #vp .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+#penbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 20px); padding: 6px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0,0,0,.18); touch-action: manipulation; }
+#penbar .pb-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#penbar .swatch { width: 34px; height: 34px; }
+#penbar .sep { width: 1px; height: 26px; background: var(--line); margin: 0 4px; }
+.pb-w { width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; display: grid; place-items: center; }
+.pb-w i { display: block; width: 24px; border-radius: 4px; }
+.pb-w[aria-pressed="true"] { background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--ink); }
 #hint { position: absolute; left: 12px; bottom: 12px; background: rgba(22,32,43,.82); color: #fff; font-size: 13px; padding: 6px 10px; border-radius: 6px; pointer-events: none; }
 
 #panel { flex: 0 0 min(390px, 36%); min-width: 300px; border-left: 1px solid var(--line); background: var(--surface); overflow-y: auto; padding-block: 14px 24px; padding-left: 16px; padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
@@ -166,6 +173,11 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--ink); }
+.swatch.more { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.swatch.more[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--accent); }
+.palette { display: grid; grid-template-columns: repeat(13, 1fr); margin-top: 10px; border-radius: 10px; overflow: hidden; max-width: 420px; }
+.palette button { aspect-ratio: 1; border: 0; padding: 0; min-width: 0; }
+.palette button[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: -3px; box-shadow: inset 0 0 0 5px #fff; }
 .wchip { display: inline-flex; align-items: center; gap: 8px; }
 .wchip i { display: inline-block; width: 22px; border-radius: 4px; background: currentColor; }
 .pen-opts { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
@@ -223,6 +235,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
         <div id="stage"><canvas id="cv"></canvas><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
         <div class="loading" id="loading" hidden>도면 여는 중…</div>
         <div id="hint" hidden></div>
+        <div id="penbar" hidden></div>
       </div>
       <aside id="panel"></aside>
     </div>
@@ -231,7 +244,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "917d4e4d73"; window.DY_BUILT = "2026-10-20 18:24";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "839cd32d38"; window.DY_BUILT = "2026-10-21 09:52";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -898,10 +911,26 @@ function renderBar() {
   $("#t-export").onclick = exportModal;
   document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
+  renderPenBar();
+}
+// 펜 도구일 때 도면 위쪽에 뜨는 펜 줄: 색 · 색상표 · 굵기
+function renderPenBar() {
+  const pb = $("#penbar"), on = S.tool === "pen";
+  pb.hidden = !on; if (!on) return;
+  const st = penStyle(), pc = penColor(st), custom = !PEN_COLORS.some(([c]) => c === pc);
+  pb.innerHTML = `<div class="pb-row">
+      ${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}
+      ${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}
+      <button class="swatch more" data-pal aria-label="색상표" aria-expanded="${palOpen}"></button>
+      <span class="sep"></span>
+      ${PEN_WIDTHS.map(([w, nm]) => `<button class="pb-w" data-pw="${w}" aria-label="${nm}" aria-pressed="${(st.w || 1) === w}"><i style="height:${Math.max(2, w * 3)}px;background:${pc}"></i></button>`).join("")}
+    </div>
+    ${palOpen ? `<div class="palette">${PALETTE.flat().map((c) => `<button data-pc="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${pc === c}"></button>`).join("")}</div>` : ""}`;
+  bindPenOpts(pb, (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; if (v.color) palOpen = false; touch(null); renderPenBar(); }, renderPenBar);
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 오른쪽에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 결함 표시는 지워지지 않습니다" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 결함 표시는 지워지지 않습니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1044,12 +1073,19 @@ function noteBox(n, u) {
 function penWidth(u, n) { return u * 0.16 * ((n && n.w) || 1); }
 function penColor(n) { return (n && n.color) || COL.note; }
 function penStyle() { return (S.proj && S.proj.prefs && S.proj.prefs.pen) || { color: COL.note, w: 1 }; }
+// 색상표: 무채색 1줄 + 색상 12개 × 밝기 8단계
+const hslHex = (h, s, l) => { s /= 100; l /= 100; const f = (n) => { const k = (n + h / 30) % 12, c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c * 255).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
+const PALETTE = [20, 30, 40, 50, 60, 70, 80, 90].map((l, r) => [hslHex(0, 0, r === 0 ? 0 : (r * 100) / 7), ...Array.from({ length: 12 }, (_, i) => hslHex(i * 30, 90, l))]);
+let palOpen = false;
 function penOptsHTML(cur) {
-  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${penColor(cur) === c}"></button>`).join("")}</div></div>
+  const pc = penColor(cur), custom = !PEN_COLORS.some(([c]) => c === pc);
+  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}<button class="swatch more" data-pal aria-label="색상표" aria-expanded="${palOpen}"></button></div>
+      ${palOpen ? `<div class="palette">${PALETTE.flat().map((c) => `<button data-pc="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${pc === c}"></button>`).join("")}</div>` : ""}</div>
     <div class="fld"><span class="lab">선 두께</span><div class="chips">${PEN_WIDTHS.map(([w, nm]) => `<button class="chip wchip" data-pw="${w}" aria-pressed="${((cur && cur.w) || 1) === w}"><i style="height:${Math.max(2, w * 3)}px"></i>${nm}</button>`).join("")}</div></div>`;
 }
-function bindPenOpts(box, apply) {
+function bindPenOpts(box, apply, rerender = renderPanel) {
   box.querySelectorAll("[data-pc]").forEach((b) => (b.onclick = () => apply({ color: b.dataset.pc })));
+  box.querySelector("[data-pal]").onclick = () => { palOpen = !palOpen; rerender(); };
   box.querySelectorAll("[data-pw]").forEach((b) => (b.onclick = () => apply({ w: Number(b.dataset.pw) })));
 }
 function noteSVG(n, col, u) {
@@ -1151,6 +1187,8 @@ function startPinch() {
   gest = { kind: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, m0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, z0: S.z, tx0: S.tx, ty0: S.ty };
 }
 function selectItem(id) { if (S.sel !== id) { S.sel = id; renderOverlay(); renderPanel(); } }
+// 펜 줄을 눌러도 도면에 그려지지 않게
+["pointerdown", "pointermove", "pointerup", "wheel"].forEach((ev) => $("#penbar").addEventListener(ev, (e) => e.stopPropagation()));
 vp.addEventListener("pointerdown", (e) => {
   if (!S.pi) return;
   try { vp.setPointerCapture(e.pointerId); } catch (_) {}
@@ -1575,7 +1613,6 @@ function renderPageSummary(P) {
     <div class="ph"><div class="t"><span class="eyebrow">이 도면</span><span class="big">${esc(fl || "층 미지정")}</span></div></div>
     ${S.tool === "eraser" ? `<div class="pen-opts" id="er-opts"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">지우개 · 펜 메모만 지워집니다</span>
       <div class="fld"><span class="lab">크기</span><div class="chips">${ERASER.map(([k2, nm, px]) => `<button class="chip wchip" data-er="${k2}" aria-pressed="${eraserSize() === k2}"><i style="width:${px / 2}px;height:${px / 2}px;border-radius:50%"></i>${nm}</button>`).join("")}</div></div></div>` : ""}
-    ${S.tool === "pen" ? `<div class="pen-opts" id="pen-opts"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">펜 · 번호 없는 메모</span>${penOptsHTML(penStyle())}</div>` : ""}
     ${fl ? `<label class="cur-photo"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">${esc(fl)} 현황사진 · 야장 PDF 왼쪽 위에 찍힘</span>
       <input class="inp num" id="f-cur" autocomplete="off" value="${esc(photoRange(fl))}" placeholder="예: 6500-6520"></label>` : ""}
     <div class="stat">
@@ -1592,11 +1629,10 @@ function renderPageSummary(P) {
       <b>점</b> 결함 위치를 누르면 번호가 붙습니다.<br>
       <b>화살표</b> 결함 위치에서 번호 놓을 곳까지 끕니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
-      <b>펜</b> 번호 없는 메모입니다. 색과 굵기를 고를 수 있습니다.<br>
+      <b>펜</b> 번호 없는 메모입니다. 색과 굵기는 도면 위쪽 펜 줄에서 고릅니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 쓸 때는 두 손가락으로 끌면 이동, 벌리면 확대입니다.
     </p>`;
   P.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPanel(); }));
-  if ($("#pen-opts")) bindPenOpts($("#pen-opts"), (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; touch(null); renderPanel(); });
   if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
 }
