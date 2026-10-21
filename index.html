@@ -255,7 +255,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "bd1ca58dde"; window.DY_BUILT = "2026-10-21 11:38";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "4496038da1"; window.DY_BUILT = "2026-10-21 11:40";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1316,7 +1316,7 @@ vp.addEventListener("pointerdown", (e) => {
   if (MARK_TOOLS.includes(S.tool) && !fingerOnly) {
     if (!floorOfPage(curKey())) { ptrs.clear(); floorModal(curKey()); return; }
     gest = { kind: "draw", tool: S.tool, start: p, cur: p };
-    draft = S.tool === "area" ? { type: "area", pts: [p, p] } : { type: "point", pts: [p] };
+    draft = S.tool === "area" ? { type: "area", pts: [p, p] } : S.tool === "arrow" ? { type: "arrow", pts: [p, arrowTip(p)] } : { type: "point", pts: [p] };
     renderOverlay();
   } else {
     gest = panG();
@@ -1352,7 +1352,9 @@ vp.addEventListener("pointermove", (e) => {
   }
   if (gest.kind === "draw") {
     gest.cur = p;
-    if (gest.tool === "point" || gest.tool === "arrow") draft = screenDist(gest.start, p) < 14 ? { type: "point", pts: [gest.start] } : { type: gest.tool === "point" ? "point" : "arrow", pts: gest.tool === "point" ? [gest.start] : [gest.start, p], lab: p };
+    const short = screenDist(gest.start, p) < 14;
+    if (gest.tool === "point") draft = short ? { type: "point", pts: [gest.start] } : { type: "point", pts: [gest.start], lab: p };
+    else if (gest.tool === "arrow") draft = { type: "arrow", pts: [gest.start, short ? arrowTip(gest.start) : p] };
     else draft.pts = [gest.start, p];
     renderOverlay(); return;
   }
@@ -1424,6 +1426,8 @@ vp.addEventListener("wheel", (e) => {
   applyTransform(); renderOverlay(); scheduleRender();
 }, { passive: false });
 
+// 화살표를 한 번만 찍었을 때 번호 자리 (오른쪽 위)
+function arrowTip(p) { const u = U(); return [p[0] + u * 3.5, p[1] - u * 3.5]; }
 function finishDraw(g) {
   draft = null;
   let type = g.tool, pts;
@@ -1432,7 +1436,7 @@ function finishDraw(g) {
   const dragged = screenDist(g.start, g.cur) >= 14, u = U();
   let lab = null;
   if (type === "point") { pts = [g.start]; if (dragged) lab = g.cur; }
-  else if (type === "arrow") pts = [g.start, dragged ? g.cur : [g.start[0] + u * 3.5, g.start[1] - u * 3.5]];
+  else if (type === "arrow") pts = [g.start, dragged ? g.cur : arrowTip(g.start)];
   else if (type === "area") {
     const w = Math.abs(g.start[0] - g.cur[0]) * S.base * S.z, h = Math.abs(g.start[1] - g.cur[1]) * S.base * S.z;
     if (w < 12 || h < 12) return tooShort("영역은 대각선으로 끌어서 그립니다 · 점은 점 도구로");
@@ -2167,6 +2171,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build bd1ca58dde -->
+<!-- build 4496038da1 -->
 </body>
 </html>
