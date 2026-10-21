@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "cb8f99927b"; window.DY_BUILT = "2026-10-21 16:33";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "079436b418"; window.DY_BUILT = "2026-10-21 16:36";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1024,7 +1024,6 @@ function renderBar() {
         ${["point", "arrow", "area", "pen", "eraser"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
       </span>
       <span class="bt-r">
-        <button class="ibtn lbl" id="t-fit" aria-label="화면 맞춤">${ICON.fit}<span>맞춤</span></button>
       </span>
     </div>`;
   $("#t-home").onclick = goHome;
@@ -1034,7 +1033,6 @@ function renderBar() {
   $("#t-floor").onclick = () => floorModal(curKey());
   $("#t-undo").onclick = undo;
   $("#t-redo").onclick = redo;
-  $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
   $("#t-set").onclick = manageModal;
   document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; palOpen = false; palSlot = -1; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
@@ -2396,6 +2394,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build cb8f99927b -->
+<!-- build 079436b418 -->
 </body>
 </html>
