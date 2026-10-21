@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "497ce9e686"; window.DY_BUILT = "2026-10-21 16:28";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "cb8f99927b"; window.DY_BUILT = "2026-10-21 16:33";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1025,7 +1025,6 @@ function renderBar() {
       </span>
       <span class="bt-r">
         <button class="ibtn lbl" id="t-fit" aria-label="화면 맞춤">${ICON.fit}<span>맞춤</span></button>
-        <button class="ibtn lbl ${fingerMode() === "draw" ? "on" : ""}" id="t-finger" aria-label="손가락 쓰임 바꾸기">${ICON.hand}<span>손가락 ${fingerMode() === "pan" ? "이동" : "그리기"}</span></button>
       </span>
     </div>`;
   $("#t-home").onclick = goHome;
@@ -1038,7 +1037,6 @@ function renderBar() {
   $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
   $("#t-set").onclick = manageModal;
-  $("#t-finger").onclick = () => { const v = fingerMode() === "pan" ? "draw" : "pan"; setFingerMode(v); renderBar(); toast(v === "pan" ? "손가락은 이동·확대만 합니다 · 표시는 펜슬로" : "손가락으로 표시합니다 · 이동은 두 손가락"); };
   document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; palOpen = false; palSlot = -1; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
   renderPenBar();
@@ -1307,10 +1305,10 @@ function renderOverlay() {
 /* ---------------- 터치 / 펜 입력 ---------------- */
 const vp = $("#vp");
 const ptrs = new Map();
-// 손가락 쓰임: "pan"(이동·확대만) / "draw"(그리기). 펜슬을 한 번 쓰면 이동으로 바뀌고 태블릿에 기억
+// 손가락 쓰임: "pan"(이동·확대만, 기본) / "draw"(그리기). 설정(톱니바퀴)에서 바꾸고 태블릿에 기억. 펜슬은 언제나 그리기
 let gest = null;
-function fingerMode() { try { return localStorage.getItem("dy-finger") || "draw"; } catch (e) { return "draw"; } }
-function setFingerMode(v) { try { localStorage.setItem("dy-finger", v); } catch (e) {} }
+function fingerMode() { try { return localStorage.getItem("dy-finger2") === "draw" ? "draw" : "pan"; } catch (e) { return "pan"; } }
+function setFingerMode(v) { try { localStorage.setItem("dy-finger2", v); } catch (e) {} }
 const MARK_TOOLS = ["point", "arrow", "area"];
 function toPage(cx, cy) { const r = vp.getBoundingClientRect(); return [(cx - r.left - S.tx) / (S.base * S.z), (cy - r.top - S.ty) / (S.base * S.z)]; }
 function screenDist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]) * S.base * S.z; }
@@ -1372,7 +1370,6 @@ vp.addEventListener("pointerdown", (e) => {
   stopViewAnim();   // 확대·축소 움직이는 중에 손대면 거기서 멈춤
   try { vp.setPointerCapture(e.pointerId); } catch (_) {}
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
-  if (e.pointerType === "pen" && fingerMode() !== "pan") { setFingerMode("pan"); renderBar(); }
   if (ptrs.size === 2) {
     if (gest && gest.kind === "move" && gest.moved) restoreMove();
     draft = null; startPinch(); renderOverlay(); return;
@@ -1901,7 +1898,7 @@ function renderPageSummary(P) {
       <b>점·화살표</b> 결함 위치를 한 번 찍으면 점(화살표 도구면 화살표)이 생기고, 찍은 채로 끌면 번호가 끈 곳으로 갑니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기는 도면 위쪽 펜 줄에서 고릅니다.<br>
-      번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 쓸 때는 두 손가락으로 끌면 이동, 벌리면 확대입니다.
+      번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 표시는 애플펜슬·S펜으로 하고, 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 표시하려면 설정(톱니바퀴) → 손가락에서 바꾸세요(그때 이동은 두 손가락).
     </p>`;
   if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
@@ -2024,6 +2021,9 @@ function manageModal() {
     <h3>설정</h3>
     <p class="sub">${esc(S.proj.name)}</p>
     <div class="menu">
+      <span class="menu-h">손가락</span>
+      <div class="chk"><span class="chips">${[["pan", "이동·확대만"], ["draw", "표시도 그리기"]].map(([v, nm]) => `<button class="chip" data-fm="${v}" aria-pressed="${fingerMode() === v}">${nm}</button>`).join("")}</span></div>
+      <p class="help" style="margin:0">펜슬이 없으면 '표시도 그리기'로 바꾸세요. 그때 도면 이동은 두 손가락으로 합니다. (이 태블릿에만 저장)</p>
       <span class="menu-h">도면 · 버튼</span>
       <label class="btn" for="x-add" style="cursor:pointer">도면 추가<small>PDF · 사진</small></label>
       <input type="file" id="x-add" multiple accept="application/pdf,.pdf,image/*" hidden>
@@ -2047,6 +2047,7 @@ function manageModal() {
     if (added.length) { S.proj.files.push(...added); buildPages(); touch(null); closeModal(); showPage(S.pages.findIndex((p) => p.fid === added[0].fid)); }
   };
   $("#x-set").onclick = settingsModal;
+  document.querySelectorAll("[data-fm]").forEach((b) => (b.onclick = () => { setFingerMode(b.dataset.fm); document.querySelectorAll("[data-fm]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
 }
 async function runBusy(btn, fn) {
   const label = btn.innerHTML; btn.disabled = true; btn.firstChild.textContent = "만드는 중…";
@@ -2395,6 +2396,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 497ce9e686 -->
+<!-- build cb8f99927b -->
 </body>
 </html>
