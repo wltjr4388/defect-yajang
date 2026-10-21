@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b7ad5e5ff0"; window.DY_BUILT = "2026-10-21 13:59";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "ffef92231d"; window.DY_BUILT = "2026-10-21 14:03";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2013,7 +2013,8 @@ async function exportXlsx() {
   ws["!cols"] = [3, 7, 8, 9, 14, 22, 8, 7, 5, 5, 9, 14, 15, 6, 5, 9, 24].map((w, i) => ({ wch: w, hidden: [2, 13, 14].includes(i) }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "외관조사 결과표");
-  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  // bookSST: 글자를 공유 문자열로 저장 (안 하면 t="str"로 써서 아이패드 미리보기에 글자가 안 보임)
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array", bookSST: true });
   await saveFile(`${S.proj.name}_외관조사 결과표.xlsx`, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
 }
 
@@ -2255,6 +2256,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build b7ad5e5ff0 -->
+<!-- build ffef92231d -->
 </body>
 </html>
