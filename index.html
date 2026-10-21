@@ -253,7 +253,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c378fe1ee8"; window.DY_BUILT = "2026-10-21 10:59";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1d41deb42a"; window.DY_BUILT = "2026-10-21 11:02";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -421,7 +421,13 @@ function floorKey(f) {
   m = s.match(/(\d+)/); if (m) return Number(m[1]);
   return 5000;
 }
-function members() { return ((S.proj && S.proj.prefs && S.proj.prefs.members) || DEFAULT_MEMBERS).filter((x) => !x.includes("+")); }
+function members() {
+  const pr = (S.proj && S.proj.prefs) || {};
+  let list = pr.members || DEFAULT_MEMBERS;
+  // 바닥 슬래브는 나중에 추가된 기본값: 예전에 설정 저장한 조사에도 넣어줌 (설정에서 직접 지운 뒤로는 안 넣음)
+  if (pr.members && !pr.membersV2 && !list.includes("바닥 슬래브")) { const i = list.indexOf("천장 슬래브"); list = [...list]; list.splice(i >= 0 ? i + 1 : list.length, 0, "바닥 슬래브"); }
+  return list.filter((x) => !x.includes("+"));
+}
 const shortMember = (x) => x.replace(/^천장 /, "");
 function splitMember(s) {
   const list = members();
@@ -1841,7 +1847,7 @@ function settingsModal() {
   $("#s-reset").onclick = () => { $("#s-mem").value = DEFAULT_MEMBERS.join(", "); $("#s-typ").value = groupsText(DEFAULT_GROUPS); $("#s-sz").value = 1; $("#s-szv").textContent = "1.0"; };
   $("#s-ok").onclick = () => {
     const gs = parseGroups($("#s-typ").value);
-    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
+    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), membersV2: true, typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
     delete p.prefs.types;
     touch(null); closeModal(); renderOverlay(); renderPanel();
   };
@@ -2141,6 +2147,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build c378fe1ee8 -->
+<!-- build 1d41deb42a -->
 </body>
 </html>
