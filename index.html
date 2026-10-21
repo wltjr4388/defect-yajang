@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c7fe292943"; window.DY_BUILT = "2026-10-21 18:18";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "06e8815286"; window.DY_BUILT = "2026-10-21 18:21";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1841,9 +1841,10 @@ function renderEquipPanel(P, m) {
     else { const sm = P.querySelector(".msum"); if (sm) sm.outerHTML = equipSummary(mm); }
   };
   const mbox = P.querySelector('.chips[data-field="member"]');
-  const toggleMember = (v) => { const ps = splitMember(selMark().member); upd("member", joinMember(ps.includes(v) ? ps.filter((x) => x !== v) : [...ps, v]), true); };
+  // 장비조사는 부재 하나만 (다시 누르면 해제). 부재가 바뀌면 단부/중앙부는 지움
+  const toggleMember = (v) => { const mm = selMark(); if (mm.member !== v) mm.pos = ""; upd("member", mm.member === v ? "" : v, true); };
   mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.v)));
-  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!members().includes(v)) addCustom("member", v); if (!splitMember(selMark().member).includes(v)) toggleMember(v); });
+  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!members().includes(v)) addCustom("member", v); if (selMark().member !== v) toggleMember(v); });
   P.querySelectorAll("[data-item]").forEach((b) => (b.onclick = () => {
     const cur = selMark().items || [], k = b.dataset.item;
     upd("items", EQUIP_ITEMS.map((it) => it.key).filter((x) => (x === k ? !cur.includes(x) : cur.includes(x))), true);
@@ -2635,6 +2636,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build c7fe292943 -->
+<!-- build 06e8815286 -->
 </body>
 </html>
