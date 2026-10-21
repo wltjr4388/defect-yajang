@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "eec4a72315"; window.DY_BUILT = "2026-10-21 18:07";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3b57b92df2"; window.DY_BUILT = "2026-10-21 18:13";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2156,7 +2156,7 @@ function exportModal() {
     <div class="xcards">
       <section class="xcard">
         <h4>야장 PDF</h4>
-        <p class="xd">${eq ? "도면 위에 조사 위치를 표시한 PDF · 항목을 고르면 그 항목 위치만, 번호는 R-1·S-1·D-1" : "도면 위에 결함 번호를 표시한 PDF"}</p>
+        <p class="xd">${eq ? "전체: 현장 번호 + 옆에 항목 번호(R-1 S-1 D-1) · 항목을 고르면 그 항목 위치만 R-1…로" : "도면 위에 결함 번호를 표시한 PDF"}</p>
         ${eq ? `<div class="chips">${[["all", "전체"], ...EQUIP_ITEMS.map((it) => [it.key, it.name])].map(([v, nm]) => `<button class="chip" data-pitem="${v}" aria-pressed="${pItem === v}">${nm}</button>`).join("")}</div>` : ""}
         <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 같이 넣기 <span style="color:var(--muted);font-size:13px">(${liveNotes().length}개)</span></label>
         <button class="btn primary xgo" id="x-pdf">PDF 만들기</button>
@@ -2365,6 +2365,7 @@ async function exportPdf() {
   let red = RED;   // 표시마다 바뀜: 장비 점(수평부재)은 파랑
   // 장비: 고른 항목을 한 위치만, 번호는 항목 번호(R-1…)로
   const eqItem = isEquip() ? S.proj.prefs.pdfItem || "all" : null, eqLab = eqItem && eqItem !== "all" ? equipLabels(eqItem) : null;
+  const eqAllLabs = eqItem === "all" ? EQUIP_ITEMS.map((it) => equipLabels(it.key)) : null;
   const pick = (key) => (eqLab ? marksOn(key).filter((m) => eqLab.has(m.id)).map((m) => ({ ...m, no: eqLab.get(m.id) })) : marksOn(key));
   const withNotes = S.proj.prefs.printNotes !== false;
   let pagesOut = 0;
@@ -2477,6 +2478,15 @@ async function exportPdf() {
       const th = (rot || 0) * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th);
       const ox = -w / 2 * cs + h / 2 * sn, oy = -w / 2 * sn - h / 2 * cs;
       pg.drawText(t, { x: c[0] + ox, y: c[1] + oy, size: fs, font, color: red, rotate: degrees(rot || 0) });
+      // 장비 [전체]: 번호 원 오른쪽 아래에 항목 번호(R-3 S-2 D-1) — 엑셀·항목별 PDF와 같은 번호, 흰 바탕
+      const tags = eqAllLabs ? eqAllLabs.map((mp) => mp.get(m.id)).filter(Boolean).join(" ") : "";
+      if (tags) {
+        const f2 = u * 0.75, tw = font.widthOfTextAtSize(tags, f2), pad = f2 * 0.2, A = P([lp[0] + r * 1.05, lp[1] + r * 1.35]);
+        const at = (lx, ly) => [A[0] + lx * cs - ly * sn, A[1] + lx * sn + ly * cs];
+        const o = at(-pad, -f2 * 0.28);
+        pg.drawRectangle({ x: o[0], y: o[1], width: tw + 2 * pad, height: f2 * 1.05, color: white, opacity: 0.85, rotate: degrees(rot || 0) });
+        pg.drawText(tags, { x: A[0], y: A[1], size: f2, font, color: red, rotate: degrees(rot || 0) });
+      }
     }
   }
 }
@@ -2622,6 +2632,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build eec4a72315 -->
+<!-- build 3b57b92df2 -->
 </body>
 </html>
