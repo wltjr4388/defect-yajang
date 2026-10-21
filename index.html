@@ -108,6 +108,8 @@ button { cursor: pointer; }
 .pager .pg { min-width: 0; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; }
 .floor-btn { font-weight: 700; border-color: var(--ink); }
 .floor-btn.unset { color: var(--warn); border-color: var(--warn); }
+.btn.finger { white-space: nowrap; font-size: 14px; }
+.btn.finger.on { color: var(--warn); border-color: var(--warn); }
 .tools { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
 .tools button { min-height: var(--tap); padding: 0 12px; border: 0; background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
 .tools button + button { border-left: 1px solid var(--line); }
@@ -253,7 +255,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1d41deb42a"; window.DY_BUILT = "2026-10-21 11:02";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "eae2251c9b"; window.DY_BUILT = "2026-10-21 11:08";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -274,8 +276,11 @@ const OFFLINE_APP = !!window.DY_OFFLINE; // 홈 화면 앱(GitHub Pages) 빌드�
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = window.DY_WORKER_SRC || "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "바닥 슬래브", "계단 슬래브"];
-// 부재 여러 개 고르면 "+"로 합침: 슬래브 → 보 → 기둥 → 벽체 → 조적벽체 순, 합칠 때 "천장 보"는 "보"로 줄임 (예: 보+기둥+조적벽체)
-const MEMBER_ORDER = ["천장 슬래브", "바닥 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체", "조적벽체"];
+// 부재 여러 개 고르면 "+"로 합침: 조적벽체 → 슬래브 → 보 → 기둥 → 벽체 순, 합칠 때 "천장 보"는 "보"로 줄임 (예: 조적벽체+보+기둥)
+const MEMBER_ORDER = ["조적벽체", "천장 슬래브", "바닥 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체"];
+// 직접 입력한 부재·결함종류는 최근 5개까지 버튼으로 남김 (이 태블릿에 저장, 모든 조사에 같이 씀)
+function recentCustom(kind) { try { const a = JSON.parse(localStorage.getItem("dy-custom-" + kind)); return Array.isArray(a) ? a.filter((x) => typeof x === "string" && x).slice(-5) : []; } catch (e) { return []; } }
+function addCustom(kind, v) { const a = recentCustom(kind).filter((x) => x !== v); a.push(v); try { localStorage.setItem("dy-custom-" + kind, JSON.stringify(a.slice(-5))); } catch (e) {} }
 // 결함종류는 분류 탭으로 묶음. 균열은 하나로 저장: 수직·수평·경사는 여러 개 고르면 "수직+수평균열"로 합침
 const DEFAULT_GROUPS = [
   { name: "균열", items: ["수직균열", "수평균열", "경사균열", "접합부 이격 균열", "망상균열"] },
@@ -946,6 +951,7 @@ function renderBar() {
     <button class="btn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
     <button class="btn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
     <button class="btn" id="t-fit" aria-label="화면 맞춤">${ICON.fit}</button>
+    <button class="btn finger ${fingerMode() === "draw" ? "on" : ""}" id="t-finger" aria-label="손가락 쓰임 바꾸기">손가락 ${fingerMode() === "pan" ? "이동" : "그리기"}</button>
     <span class="grow"></span>
     <span class="sync" id="sync"></span>
     <button class="btn primary" id="t-export">내보내기</button>`;
@@ -958,6 +964,7 @@ function renderBar() {
   $("#t-redo").onclick = redo;
   $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
+  $("#t-finger").onclick = () => { const v = fingerMode() === "pan" ? "draw" : "pan"; setFingerMode(v); renderBar(); toast(v === "pan" ? "손가락은 이동·확대만 합니다 · 표시는 펜슬로" : "손가락으로 표시합니다 · 이동은 두 손가락"); };
   document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
   renderPenBar();
@@ -1214,7 +1221,10 @@ function renderOverlay() {
 /* ---------------- 터치 / 펜 입력 ---------------- */
 const vp = $("#vp");
 const ptrs = new Map();
-let gest = null, penSeen = false;
+// 손가락 쓰임: "pan"(이동·확대만) / "draw"(그리기). 펜슬을 한 번 쓰면 이동으로 바뀌고 태블릿에 기억
+let gest = null;
+function fingerMode() { try { return localStorage.getItem("dy-finger") || "draw"; } catch (e) { return "draw"; } }
+function setFingerMode(v) { try { localStorage.setItem("dy-finger", v); } catch (e) {} }
 const MARK_TOOLS = ["point", "arrow", "area"];
 function toPage(cx, cy) { const r = vp.getBoundingClientRect(); return [(cx - r.left - S.tx) / (S.base * S.z), (cy - r.top - S.ty) / (S.base * S.z)]; }
 function screenDist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]) * S.base * S.z; }
@@ -1274,14 +1284,14 @@ vp.addEventListener("pointerdown", (e) => {
   if (!S.pi) return;
   try { vp.setPointerCapture(e.pointerId); } catch (_) {}
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
-  if (e.pointerType === "pen") penSeen = true;
+  if (e.pointerType === "pen" && fingerMode() !== "pan") { setFingerMode("pan"); renderBar(); }
   if (ptrs.size === 2) {
     if (gest && gest.kind === "move" && gest.moved) restoreMove();
     draft = null; startPinch(); renderOverlay(); return;
   }
   if (ptrs.size > 2) return;
   const p = toPage(e.clientX, e.clientY);
-  const fingerOnly = penSeen && e.pointerType === "touch"; // 펜을 쓰면 손가락은 이동·확대만
+  const fingerOnly = fingerMode() === "pan" && e.pointerType === "touch"; // 손가락 이동 모드면 손가락은 이동·확대만
   const panG = (extra) => ({ kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false, ...extra });
   if (S.tool === "eraser" && !fingerOnly) {
     gest = { kind: "erase", last: p, snap: snapshot(), changed: false };
@@ -1532,11 +1542,13 @@ function chipsHTML(field, list, val) {
   return `<div class="chips" data-field="${field}">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${v === val}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="${field}">+ 직접</button></div>`;
 }
 function memberHTML(val) {
-  const ps = splitMember(val), all = [...members(), ...ps.filter((x) => !members().includes(x))];
+  const base = [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
+  const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
   return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
 }
 function dtypeHTML(m) {
-  const gs = groups(), sel = splitTypes(m.dtype);
+  const cust = recentCustom("dtype").filter((x) => !knownType(x));
+  const gs = [...groups(), ...(cust.length ? [{ name: "직접", items: cust }] : [])], sel = splitTypes(m.dtype);
   if (!gs.some((g) => g.name === S.dtab)) S.dtab = gs[0] ? gs[0].name : "";
   const g = gs.find((x) => x.name === S.dtab) || { items: [] };
   return `
@@ -1590,7 +1602,7 @@ function renderPanel() {
   // 부재: 여러 개 고르면 "보+조적벽체"처럼 합침
   const toggleMember = (v) => { const ps = splitMember(selMark().member); upd("member", joinMember(ps.includes(v) ? ps.filter((x) => x !== v) : [...ps, v]), true); };
   mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.v)));
-  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!splitMember(selMark().member).includes(v)) toggleMember(v); });
+  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!members().includes(v)) addCustom("member", v); if (!splitMember(selMark().member).includes(v)) toggleMember(v); });
   // 결함종류: 여러 개 선택, 균열은 하나만 (수직·수평·경사는 서로 합쳐서 "수직+수평균열")
   const toggleType = (t) => {
     let sel = splitTypes(selMark().dtype);
@@ -1605,7 +1617,7 @@ function renderPanel() {
   P.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => { S.dtab = b.dataset.tab; renderPanel(); }));
   P.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => toggleType(b.dataset.t)));
   P.querySelectorAll("[data-tdel]").forEach((b) => (b.onclick = () => upd("dtype", joinTypes(splitTypes(selMark().dtype).filter((x) => x !== b.dataset.tdel)), true)));
-  P.querySelector("[data-tadd]").onclick = () => customModal("결함종류 직접 입력", (v) => { const sel = splitTypes(selMark().dtype); if (!sel.includes(v)) toggleType(v); });
+  P.querySelector("[data-tadd]").onclick = () => customModal("결함종류 직접 입력", (v) => { if (!knownType(v)) { addCustom("dtype", v); S.dtab = "직접"; } const sel = splitTypes(selMark().dtype); if (!sel.includes(v)) toggleType(v); });
   $("#f-w").oninput = (e) => upd("w", e.target.value.trim());
   $("#f-l").oninput = (e) => upd("l", e.target.value.trim());
   $("#f-count").oninput = (e) => upd("count", e.target.value.trim());
@@ -2147,6 +2159,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 1d41deb42a -->
+<!-- build eae2251c9b -->
 </body>
 </html>
