@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "d56919de24"; window.DY_BUILT = "2026-10-21 16:09";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "a328c4dc0c"; window.DY_BUILT = "2026-10-21 16:14";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1110,6 +1110,16 @@ function fit() {
   st.style.width = S.pi.W * S.base + "px";
   st.style.height = S.pi.H * S.base + "px";
 }
+// 도면이 화면 밖으로 끌려 나가지 않게: 화면보다 크면 가장자리(여백 12px, 펜 줄 아래)까지만, 작으면 가운데 고정
+// freeX: 맞춤 배율에서 옆으로 쓸어 넘기는 중이면 가로는 손가락을 따라감
+function clampView(freeX) {
+  if (!S.pi) return;
+  const r = vp.getBoundingClientRect(), k = S.base * S.z, m = 12, pb = $("#penbar");
+  const top = pb && !pb.hidden ? Math.max(m, pb.offsetTop + pb.offsetHeight + 6) : m;
+  const ax = (t, size, view, lo) => (size <= view - 2 * m ? (view - size) / 2 : clamp(t, Math.min(lo, view - m - size), lo));
+  if (!freeX) S.tx = ax(S.tx, S.pi.W * k, r.width, m);
+  S.ty = ax(S.ty, S.pi.H * k, r.height, top);
+}
 function applyTransform() { $("#stage").style.transform = `translate(${S.tx}px, ${S.ty}px) scale(${S.z})`; }
 let renderSeq = 0, renderTask = null, renderTimer = null;
 function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(renderCanvas, 220); }
@@ -1405,17 +1415,17 @@ vp.addEventListener("pointermove", (e) => {
   if (gest.kind === "pinch" && ptrs.size >= 2) {
     const [a, b] = [...ptrs.values()];
     const r = vp.getBoundingClientRect();
-    const z = clamp(gest.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gest.d0, 0.5, 14);
+    const z = clamp(gest.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gest.d0, 1, 14);   // 맞춤(1)보다 작게는 안 줄어듦
     const px = (gest.m0.x - r.left - gest.tx0) / (S.base * gest.z0);
     const py = (gest.m0.y - r.top - gest.ty0) / (S.base * gest.z0);
     const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
-    S.z = z; S.tx = mx - px * S.base * z; S.ty = my - py * S.base * z;
+    S.z = z; S.tx = mx - px * S.base * z; S.ty = my - py * S.base * z; clampView();
     applyTransform(); renderOverlay(); return;
   }
   if (gest.kind === "pan") {
     const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) gest.moved = true;
-    S.tx = gest.tx0 + dx; S.ty = gest.swipe ? gest.ty0 : gest.ty0 + dy; applyTransform(); return;   // 맞춤 배율에선 위아래 고정 (옆으로만 따라옴)
+    S.tx = gest.tx0 + dx; S.ty = gest.ty0 + dy; clampView(gest.swipe); applyTransform(); return;   // 맞춤 배율에선 위아래 고정 (옆으로만 따라옴), 확대해도 도면 끝 밖으로는 안 나감
   }
   const p = toPage(e.clientX, e.clientY);
   if (gest.kind === "erase") {
@@ -1507,9 +1517,9 @@ vp.addEventListener("pointercancel", endPointer);
 vp.addEventListener("wheel", (e) => {
   if (!S.pi) return; e.preventDefault();
   const r = vp.getBoundingClientRect();
-  const z = clamp(S.z * Math.exp(-e.deltaY * 0.0015), 0.5, 14);
+  const z = clamp(S.z * Math.exp(-e.deltaY * 0.0015), 1, 14);
   const px = (e.clientX - r.left - S.tx) / (S.base * S.z), py = (e.clientY - r.top - S.ty) / (S.base * S.z);
-  S.z = z; S.tx = e.clientX - r.left - px * S.base * z; S.ty = e.clientY - r.top - py * S.base * z;
+  S.z = z; S.tx = e.clientX - r.left - px * S.base * z; S.ty = e.clientY - r.top - py * S.base * z; clampView();
   applyTransform(); renderOverlay(); scheduleRender();
 }, { passive: false });
 
@@ -2342,6 +2352,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build d56919de24 -->
+<!-- build a328c4dc0c -->
 </body>
 </html>
