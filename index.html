@@ -121,6 +121,11 @@ button { cursor: pointer; }
 .bar-tools { display: grid; grid-template-columns: 1fr auto 1fr; padding-block: 2px 4px; border-top: 1px solid var(--line); }
 .bar-tools .bt-l, .bar-tools .bt-r { display: flex; gap: 4px; align-items: center; }
 .bar-tools .bt-r { justify-content: flex-end; }
+.rbxyz { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.rbax { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px; }
+.rbax b { font-size: 14px; color: var(--muted); }
+.rbax .inp { padding: 0 6px; }
+.rbfill { justify-self: start; margin-top: 2px; }
 .kdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; margin-right: 6px; vertical-align: 1px; }
 .htabs { margin: 4px 0 2px; }
 .htabs button { min-height: 44px; font-size: 16px; padding: 0 16px; }
@@ -316,7 +321,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c5c7eadf72"; window.DY_BUILT = "2026-10-21 17:30";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b94c6a6d64"; window.DY_BUILT = "2026-10-21 17:40";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -364,6 +369,20 @@ const EQUIP_ITEMS = [
   { key: "comp", name: "압축강도", short: "압", prefix: "S-" },
   { key: "size", name: "부재규격", short: "부", prefix: "D-" },
 ];
+// 철근배근 이미지번호는 X·Y·Z 세 칸 (현장조사 야장·RC DATA 정리 기준)
+// X = 보 주근 / 기둥 X방향 주근 / 벽 수직근 / 슬래브 단변근, Y = 보 주근단수 / 기둥 Y방향 / 벽 수평근 / 슬래브 장변근, Z = 보 스터럽 / 기둥 띠철근 (벽·슬래브는 보통 없음)
+const RB_AXES = ["rx", "ry", "rz"];
+function rbKind(member) { const s = String(member || ""); return /슬래브/.test(s) ? "slab" : /보/.test(s) ? "beam" : /기둥/.test(s) ? "col" : /벽/.test(s) ? "wall" : ""; }
+function rbHints(member) {
+  return { beam: ["주근", "주근단수", "스터럽"], col: ["X방향 주근", "Y방향 주근", "띠철근"], wall: ["수직근", "수평근", "보통 없음"], slab: ["단변근", "장변근", "보통 없음"] }[rbKind(member)] || ["", "", ""];
+}
+function rbVals(m) { if (m.photo && !m.rx && !m.ry && !m.rz) return [m.photo, "", ""]; return RB_AXES.map((k) => m[k] || ""); }   // 예전(한 칸) 값은 X로
+function rbText(m) { return rbVals(m).map((v, i) => (v ? "XYZ"[i] + v : "")).filter(Boolean).join(" "); }
+// 다음 이미지번호: 가장 최근 위치의 마지막 번호 + 1
+function rbNext(exceptId) {
+  const last = [...live()].filter((x) => x.id !== exceptId).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((x) => rbVals(x).filter((v) => /\d/.test(v)).pop()).find(Boolean);
+  return last ? bumpPhoto(last, 1) : "";
+}
 function isEquip(p) { p = p === undefined ? S.proj : p; return FEATURE_EQUIP && !!p && p.kind === "equip"; }
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
 const PEN_COLORS = [["#d6332a", "빨강"], ["#1d5bd8", "파랑"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#16202b", "검정"]];
@@ -1772,12 +1791,14 @@ function markSummary(m) {
 function equipSummary(m) {
   const parts = [], its = EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key));
   if (m.member) parts.push(esc(m.member));
-  if (its.length) parts.push(its.map((it) => esc(it.name) + (it.key === "rebar" && m.photo ? ` #${esc(m.photo)}` : "")).join(", "));
+  if (its.length) parts.push(its.map((it) => esc(it.name) + (it.key === "rebar" && rbText(m) ? ` ${esc(rbText(m))}` : "")).join(", "));
   return parts.length ? `<div class="msum">${parts.join(" · ")}</div>` : `<div class="msum empty">부재와 조사 항목을 고르세요</div>`;
 }
 function renderEquipPanel(P, m) {
   const floor = floorOf(m), its = m.items || [], rebar = its.includes("rebar");
-  const sugg = nextPhoto(lastPhotoExcept(m.id));
+  const vals = rbVals(m), hints = rbHints(m.member), nz = rbKind(m.member) === "wall" || rbKind(m.member) === "slab" ? 2 : 3;
+  // 이 위치에 적은 번호가 있으면 그 다음부터 (X 6531 → Y 6532), 없으면 직전 위치의 마지막 번호 다음부터
+  const own = vals.filter((v) => /\d/.test(v)).pop(), empty = vals.slice(0, nz).filter((v) => !v).length, nxt = own ? bumpPhoto(own, 1) : rbNext(m.id);
   P.innerHTML = `
     <div class="ph">
       <span class="big"><button class="no-edit" id="f-no">위치 <span class="num" style="color:${COL.equip}">${esc(m.no)}</span><small>번호 바꾸기</small></button></span>
@@ -1787,12 +1808,9 @@ function renderEquipPanel(P, m) {
     <div class="fld sec"><span class="lab">부재</span>${memberHTML(m.member)}</div>
     <div class="fld sec"><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
     ${rebar ? `<div class="fld sec"><span class="lab">철근배근 이미지번호</span>
-      <div class="photo-wrap">
-        <button class="btn pm" id="f-pm" aria-label="이미지번호 하나 내리기">−</button>
-        <input class="inp num" id="f-photo" autocomplete="off" autocapitalize="characters" value="${esc(m.photo)}" placeholder="예: 0123">
-        <button class="btn pm" id="f-pp" aria-label="이미지번호 하나 올리기">+</button>
-        ${sugg && sugg !== m.photo ? `<button class="btn sugg" id="f-sugg">다음 ${esc(sugg)}</button>` : ""}
-      </div></div>` : ""}
+      <div class="rbxyz">${RB_AXES.map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
+      ${empty && nxt ? `<button class="btn sugg rbfill" id="f-rbfill">빈 칸 이어서 채우기 · ${esc(nxt)}부터</button>` : ""}
+    </div>` : ""}
     <div class="fld inl sec"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
     <div class="pfoot"><button class="btn danger del" id="f-del">삭제</button><button class="btn primary" id="f-done">완료</button></div>`;
   const upd = (field, v, rerender) => {
@@ -1812,11 +1830,16 @@ function renderEquipPanel(P, m) {
     upd("items", EQUIP_ITEMS.map((it) => it.key).filter((x) => (x === k ? !cur.includes(x) : cur.includes(x))), true);
   }));
   if (rebar) {
-    $("#f-photo").oninput = (e) => upd("photo", e.target.value.trim());
-    const step = (d) => { const cur = selMark().photo; const v = cur ? bumpPhoto(cur, d) : sugg; if (v) upd("photo", v, true); };
-    $("#f-pm").onclick = () => step(-1);
-    $("#f-pp").onclick = () => step(1);
-    if ($("#f-sugg")) $("#f-sugg").onclick = () => upd("photo", sugg, true);
+    // 예전 한 칸 값(m.photo)은 처음 고칠 때 X로 옮김
+    const mig = (mm) => { if (mm.photo && !mm.rx && !mm.ry && !mm.rz) { mm.rx = mm.photo; mm.photo = ""; } };
+    P.querySelectorAll("[data-rb]").forEach((inp) => (inp.oninput = () => { const mm = selMark(); mig(mm); upd(inp.dataset.rb, inp.value.trim()); }));
+    P.querySelectorAll("[data-rb]").forEach((inp) => (inp.onchange = () => renderPanel()));   // 칸에서 나오면 '이어서 채우기'를 새 번호로
+    // 이어서 채우기: 빈 칸을 X→Y→Z 순서로 다음 번호부터 (벽·슬래브는 X·Y만)
+    if ($("#f-rbfill")) $("#f-rbfill").onclick = () => {
+      const mm = selMark(); mig(mm); let v = nxt;
+      RB_AXES.slice(0, nz).forEach((k) => { if (!mm[k] && v) { mm[k] = v; v = bumpPhoto(v, 1); } });
+      upd("rx", mm.rx || "", true);
+    };
   }
   const grow = (t) => { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; };
   grow($("#f-memo"));
@@ -2004,7 +2027,7 @@ function renderPageSummary(P) {
     ${ms.length ? `<div class="list">${ms.map((m) => `
       <button class="lrow" data-sel="${m.id}"><span class="n">${esc(m.no)}</span>
         ${isEquip() ? `<span class="d">${esc(m.member || "부재?")} · ${EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key)).map((it) => esc(it.name)).join(", ") || '<span class="miss">항목 없음</span>'}
-        <small>${(m.items || []).includes("rebar") ? (m.photo ? "철근 #" + esc(m.photo) : '<span class="miss">철근 이미지번호 없음</span>') : ""}${m.memo ? " · " + esc(m.memo) : ""}</small></span>` : `<span class="d">${esc(m.member || "부재?")} ${esc(typeLabel(m.dtype) || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
+        <small>${(m.items || []).includes("rebar") ? (rbText(m) ? "철근 " + esc(rbText(m)) : '<span class="miss">철근 이미지번호 없음</span>') : ""}${m.memo ? " · " + esc(m.memo) : ""}</small></span>` : `<span class="d">${esc(m.member || "부재?")} ${esc(typeLabel(m.dtype) || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>`}
       </button>`).join("")}</div>` : ""}
     <p class="help">
@@ -2084,7 +2107,7 @@ function missingOf(m) {
     const b = [], its = m.items || [];
     if (!m.member) b.push("부재");
     if (!its.length) b.push("조사 항목");
-    if (its.includes("rebar") && !m.photo) b.push("철근 이미지번호");
+    if (its.includes("rebar") && !rbVals(m)[0]) b.push("철근 이미지번호(X)");
     return b;
   }
   const a = [];
@@ -2299,9 +2322,9 @@ async function exportEquipXlsx() {
   const wb = XLSX.utils.book_new();
   for (const it of EQUIP_ITEMS) {
     const lab = equipLabels(it.key), rebar = it.key === "rebar";
-    const rows = equipOrdered().filter((m) => lab.has(m.id)).map((m) => [lab.get(m.id), f3Floor(floorOf(m)).name, nfc(m.member || ""), ...(rebar ? [nfc(m.photo || "")] : []), nfc(m.memo || ""), m.no]);
-    const ws = XLSX.utils.aoa_to_sheet([["번호", "층", "부재", ...(rebar ? ["이미지번호"] : []), "메모", "현장 위치번호"], ...rows]);
-    ws["!cols"] = [8, 10, 16, ...(rebar ? [12] : []), 24, 12].map((w) => ({ wch: w }));
+    const rows = equipOrdered().filter((m) => lab.has(m.id)).map((m) => [lab.get(m.id), f3Floor(floorOf(m)).name, nfc(m.member || ""), ...(rebar ? rbVals(m).map(nfc) : []), nfc(m.memo || ""), m.no]);
+    const ws = XLSX.utils.aoa_to_sheet([["번호", "층", "부재", ...(rebar ? ["X", "Y", "Z"] : []), "메모", "현장 위치번호"], ...rows]);
+    ws["!cols"] = [8, 10, 16, ...(rebar ? [10, 10, 10] : []), 24, 12].map((w) => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, it.name);
   }
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array", bookSST: true });
@@ -2572,6 +2595,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build c5c7eadf72 -->
+<!-- build b94c6a6d64 -->
 </body>
 </html>
