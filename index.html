@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "ec67203427"; window.DY_BUILT = "2026-10-21 18:25";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "d41d0a9322"; window.DY_BUILT = "2026-10-21 18:27";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1060,6 +1060,7 @@ const ICON = {
   arrow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="17" cy="7" r="4"/><path d="M14 10L5 19"/><path d="M5 19l1-5M5 19l5-1"/></svg>`,
   area: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="4" y="6" width="16" height="13" rx="1"/></svg>`,
   text: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>`,
+  lasso: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2.6"><ellipse cx="12" cy="10" rx="8" ry="5.5"/><path d="M8 15c-1 2 0 4 2 5" stroke-dasharray="none"/></svg>`,
   pen: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>`,
   eraser: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20h12"/><path d="M4.5 15.5l9-9a2 2 0 012.8 0l3.2 3.2a2 2 0 010 2.8L13 19H8.5z"/><path d="M9 11l5 5"/></svg>`,
   undo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>`,
@@ -1097,7 +1098,7 @@ function renderBar() {
         <button class="ibtn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
       </span>
       <span class="tools" role="group" aria-label="표시 도구">
-        ${(isEquip() ? ["point", "arrow", "pen", "eraser"] : ["point", "arrow", "area", "pen", "eraser"]).map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
+        ${(isEquip() ? ["point", "arrow", "pen", "eraser", "lasso"] : ["point", "arrow", "area", "pen", "eraser", "lasso"]).map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개", lasso: "올가미" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
       </span>
       <span class="bt-r">
       </span>
@@ -1111,7 +1112,7 @@ function renderBar() {
   $("#t-redo").onclick = redo;
   $("#t-export").onclick = exportModal;
   $("#t-set").onclick = manageModal;
-  document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; palOpen = false; palSlot = -1; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
+  document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; palOpen = false; palSlot = -1; if (S.multi && S.tool !== "lasso") { S.multi = null; renderOverlay(); } renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
   renderPenBar();
 }
@@ -1137,7 +1138,7 @@ function renderPenBar() {
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: isEquip() ? "수평부재(보·슬래브) 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다" : "결함 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다", arrow: isEquip() ? "수직부재(기둥·벽체) 위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다" : "위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
+  const msg = { lasso: "고를 표시를 둘러 그리세요 · 고른 뒤 안쪽을 끌면 같이 움직입니다", pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: isEquip() ? "수평부재(보·슬래브) 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다" : "결함 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다", arrow: isEquip() ? "수직부재(기둥·벽체) 위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다" : "위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1146,7 +1147,7 @@ function showHint() {
 async function showPage(idx) {
   if (!S.pages.length) { $("#panel").innerHTML = `<p class="help">도면이 없습니다. 설정(톱니바퀴)에서 도면을 추가하세요.</p>`; return; }
   idx = clamp(idx, 0, S.pages.length - 1);
-  S.cur = idx; S.sel = null; S.proj.lastPage = idx;
+  S.cur = idx; S.sel = null; S.multi = null; S.proj.lastPage = idx;
   const pg = S.pages[idx];
   $("#loading").hidden = false;
   try {
@@ -1353,6 +1354,38 @@ function photoLabelSVG(txt, u) {
   return `<g><rect x="${u}" y="${u}" width="${w}" height="${h}" fill="#fff" stroke="#16202b" stroke-width="${u * 0.1}"/><text x="${u + pad}" y="${u + h / 2}" font-size="${fs}" font-weight="700" font-family='${NOTE_FONT}' fill="#16202b" dominant-baseline="central">${esc(txt)}</text></g>`;
 }
 
+/* ---------- 올가미: 둘러 그린 안의 표시(결함·장비 위치)와 메모를 한꺼번에 고름 ---------- */
+// S.multi = { ids } — 고른 상태에서 안쪽을 끌면 같이 이동, 입력창에서 다른 도면으로 옮기기·복사·삭제
+function inPoly(q, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > q[1]) !== (yj > q[1]) && q[0] < ((xj - xi) * (q[1] - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+function multiItems() { return S.multi ? S.multi.ids.map(findItem).filter((x) => x && !x.deleted) : []; }
+function itemBox(it, u) {
+  if (it.kind) return noteBox(it, u);
+  const qs = [...it.pts, labelPos(it, u)], xs = qs.map((q) => q[0]), ys = qs.map((q) => q[1]), r = u * 1.2;
+  return { x: Math.min(...xs) - r, y: Math.min(...ys) - r, w: Math.max(...xs) - Math.min(...xs) + 2 * r, h: Math.max(...ys) - Math.min(...ys) + 2 * r };
+}
+function multiBox(u) {
+  const bs = multiItems().map((it) => itemBox(it, u)); if (!bs.length) return null;
+  const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y));
+  return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+}
+function lassoPick(poly) {
+  const k = curKey(), u = U(), ids = [];
+  for (const m of marksOn(k)) if (inPoly(m.pts[0], poly) || inPoly(labelPos(m, u), poly)) ids.push(m.id);
+  for (const n of notesOn(k)) {
+    const qs = n.kind === "pen" ? n.pts : [n.at];
+    if (qs.filter((q) => inPoly(q, poly)).length * 2 >= qs.length) ids.push(n.id);
+  }
+  return ids;
+}
+const moveGeom = (g, dx, dy) => { const t = (q) => [q[0] + dx, q[1] + dy], o = {}; if (g.pts) o.pts = g.pts.map(t); if (g.at) o.at = t(g.at); if (g.lab) o.lab = t(g.lab); return o; };
+
 let draft = null; // 그리는 중인 표시
 function renderOverlay() {
   const ov = $("#ov");
@@ -1367,11 +1400,15 @@ function renderOverlay() {
     out += noteSVG(n, COL.note, u);
     if (n.id === S.sel) { const b = noteBox(n, u), pd = u * 0.4; out += `<rect x="${b.x - pd}" y="${b.y - pd}" width="${b.w + pd * 2}" height="${b.h + pd * 2}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
   }
-  const col = (m) => (m.id === S.sel ? COL.sel : isEquip() ? (m.type === "arrow" ? COL.eqV : COL.eqH) : COL.mark);
+  const inMulti = (id) => !!S.multi && S.multi.ids.includes(id);
+  const col = (m) => (m.id === S.sel || inMulti(m.id) ? COL.sel : isEquip() ? (m.type === "arrow" ? COL.eqV : COL.eqH) : COL.mark);
   for (const m of ms) out += geomSVG(m, col(m), u);
   for (const m of ms) out += labelSVG(m, col(m), u);
   const sm = selMark(); if (sm && sm.pageKey === k) for (const h of handlesOf(sm)) out += handleSVG(h.at);
-  if (draft) {
+  const mb = S.multi ? multiBox(u) : null;
+  if (mb) out += `<rect x="${mb.x}" y="${mb.y}" width="${mb.w}" height="${mb.h}" fill="${COL.sel}" fill-opacity="0.06" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.6} ${u * 0.35}"/>`;
+  if (draft && draft.type === "lasso") out += `<polyline points="${draft.pts.map((q) => q.join(",")).join(" ")}" fill="${COL.sel}" fill-opacity="0.05" stroke="${COL.sel}" stroke-width="${1.6 / (S.base * S.z)}" stroke-dasharray="${5 / (S.base * S.z)} ${4 / (S.base * S.z)}"/>`;
+  else if (draft) {
     if (draft.type === "eraser") { const rr = eraserR(); out += `<circle cx="${draft.at[0]}" cy="${draft.at[1]}" r="${rr}" fill="#fff" fill-opacity="0.35" stroke="#5a6573" stroke-width="${1.5 / (S.base * S.z)}" stroke-dasharray="${4 / (S.base * S.z)} ${3 / (S.base * S.z)}"/>`; }
     else if (draft.type === "pen") out += noteSVG({ kind: "pen", pts: draft.pts, ...penStyle() }, COL.note, u);
     else { out += geomSVG(draft, COL.sel, u); out += labelSVG({ ...draft, no: "?" }, COL.sel, u); }
@@ -1457,6 +1494,17 @@ vp.addEventListener("pointerdown", (e) => {
   // swipe: 도면 전체가 보이는 상태(맞춤 배율)에서 시작한 이동이면, 옆으로 쓸었을 때 이전/다음 도면으로 넘김
   // (확대 상태에서 끝까지 가서 한 번 더 끌면 넘기는 건 나중에 — 사용자 결정 2026-10-21)
   const panG = (extra) => ({ kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false, swipe: S.z <= 1.02, t0: performance.now(), ...extra });
+  if (S.tool === "lasso" && !fingerOnly) {
+    const mb = S.multi ? multiBox(U()) : null;
+    if (mb && p[0] >= mb.x && p[0] <= mb.x + mb.w && p[1] >= mb.y && p[1] <= mb.y + mb.h) {
+      gest = { kind: "mmove", start: p, orig: new Map(multiItems().map((it) => [it.id, geomOf(it)])), snap: snapshot(), moved: false };
+    } else {
+      const had = !!S.multi; S.multi = null; S.sel = null;
+      gest = { kind: "lasso", pts: [p] }; draft = { type: "lasso", pts: gest.pts };
+      renderOverlay(); if (had) renderPanel();
+    }
+    return;
+  }
   if (S.tool === "eraser" && !fingerOnly) {
     gest = { kind: "erase", last: p, snap: snapshot(), changed: false };
     draft = { type: "eraser", at: p };
@@ -1504,6 +1552,14 @@ vp.addEventListener("pointermove", (e) => {
     S.tx = gest.tx0 + dx; S.ty = gest.ty0 + dy; clampView(gest.swipe); applyTransform(); return;   // 맞춤 배율에선 위아래 고정 (옆으로만 따라옴), 확대해도 도면 끝 밖으로는 안 나감
   }
   const p = toPage(e.clientX, e.clientY);
+  if (gest.kind === "lasso") { if (screenDist(p, gest.pts[gest.pts.length - 1]) >= 3) { gest.pts.push(p); renderOverlay(); } return; }
+  if (gest.kind === "mmove") {
+    if (!gest.moved && screenDist(p, gest.start) < 6) return;
+    gest.moved = true;
+    const dx = p[0] - gest.start[0], dy = p[1] - gest.start[1];
+    gest.orig.forEach((g, id) => { const it = findItem(id); if (it) setGeom(it, moveGeom(g, dx, dy)); });
+    renderOverlay(); return;
+  }
   if (gest.kind === "erase") {
     eraseAlong(gest.last, p); gest.last = p; draft.at = p; renderOverlay();
     return;
@@ -1611,6 +1667,18 @@ function endPointer(e) {
   }
   const g = gest; gest = null;
   if (g.kind === "erase") { draft = null; if (g.changed) pushUndo(g.snap); renderOverlay(); if (g.changed) renderPanel(); return; }
+  if (g.kind === "lasso") {
+    draft = null;
+    const ids = g.pts.length > 2 ? lassoPick(g.pts) : [];
+    S.multi = ids.length ? { ids } : null;
+    renderOverlay(); renderPanel();
+    if (!ids.length) toast("둘러 그린 안에 표시가 없습니다");
+    return;
+  }
+  if (g.kind === "mmove") {
+    if (g.moved) { pushUndo(g.snap); const t = now(); multiItems().forEach((it) => { it.updatedAt = t; touch(it.pageKey); }); }
+    renderOverlay(); return;
+  }
   if (e.type === "pointercancel") { if (g.kind === "move" && g.moved) restoreMove(); draft = null; renderOverlay(); return; }
   if (g.kind === "pan") {
     if (g.moved) { if (g.swipe) swipePage(e.clientX - g.sx, e.clientY - g.sy, performance.now() - g.t0); return; }
@@ -1880,6 +1948,7 @@ function renderEquipPanel(P, m) {
 function renderPanel() {
   const P = $("#panel");
   if (!S.proj) return;
+  if (S.multi && multiItems().length) { renderMultiPanel(P); return; }
   const n = selNote();
   if (n) { renderNotePanel(P, n); return; }
   const m = selMark();
@@ -2064,15 +2133,35 @@ function renderPageSummary(P) {
   if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
 }
+function renderMultiPanel(P) {
+  const its = multiItems(), nm = its.filter((x) => !x.kind).length, nn = its.length - nm, noun = isEquip() ? "위치" : "결함";
+  P.innerHTML = `
+    <div class="ph"><span class="big">${its.length}개 선택</span><span class="meta">${[nm ? `${noun} ${nm}` : "", nn ? `메모 ${nn}` : ""].filter(Boolean).join(" · ")}</span></div>
+    <p class="help" style="margin:0">고른 안쪽을 끌면 같이 움직입니다. 다른 곳을 둘러 그리면 새로 고릅니다.</p>
+    <div class="menu">
+      <button class="btn" id="mu-move">다른 도면으로<small>옮기기 · 복사 (같은 자리, 내용 그대로)</small></button>
+      <button class="btn danger" id="mu-del">${its.length}개 지우기</button>
+    </div>
+    <div class="pfoot"><button class="btn primary" id="mu-done">선택 해제</button></div>`;
+  $("#mu-move").onclick = () => moveMarkModal(multiItems());
+  $("#mu-del").onclick = () => {
+    pushUndo(); const t = now();
+    multiItems().forEach((it) => { it.deleted = true; it.updatedAt = t; touch(it.pageKey); });
+    const c = S.multi.ids.length; S.multi = null; renderOverlay(); renderPanel();
+    toast(`${c}개를 지웠습니다 · 되돌리기로 살릴 수 있습니다`);
+  };
+  $("#mu-done").onclick = () => { S.multi = null; renderOverlay(); renderPanel(); };
+}
 // 표시를 다른 도면(층)으로 옮기기·복사: 같은 자리(도면 크기 비율로 맞춤)에 내용 그대로, 번호는 그 층의 다음 번호
-function moveMarkModal(m) {
-  if (!m) return;
+function moveMarkModal(arg) {
+  const items = (Array.isArray(arg) ? arg : [arg]).filter(Boolean); if (!items.length) return;
+  const m = items[0], marks = items.filter((x) => !x.kind).sort((a, b) => (a.no || 0) - (b.no || 0)), notes = items.filter((x) => x.kind);
   const others = S.pages.map((pg, i) => [pg, i]).filter(([pg]) => pg.key !== m.pageKey);
   if (!others.length) { toast("옮길 다른 도면이 없습니다"); return; }
   const pname = (pg) => `${esc(floorOfPage(pg.key) || "층 미지정")} · ${esc(pg.name)}${(S.proj.files.find((f) => f.fid === pg.fid) || {}).pageCount > 1 ? ` p.${pg.i + 1}` : ""}`;
   openModal(`
     <h3>다른 도면으로</h3>
-    <p class="sub">${esc(floorOf(m) || "층 미지정")} ${esc(m.no)}번 · 같은 자리에 내용 그대로, 번호는 그 층의 다음 번호</p>
+    <p class="sub">${items.length > 1 ? `${items.length}개` : `${esc(floorOf(m) || "층 미지정")} ${esc(m.no)}번`} · 같은 자리에 내용 그대로, 번호는 그 층의 다음 번호부터</p>
     <div class="chips"><button class="chip" data-mv="move" aria-pressed="true">옮기기</button><button class="chip" data-mv="copy" aria-pressed="false">복사</button></div>
     <div class="menu">${others.map(([pg, i]) => `<button class="btn" data-to="${i}">${pname(pg)}</button>`).join("")}</div>
     <div class="sheet-foot"><button class="btn ghost" data-close>취소</button></div>`);
@@ -2081,17 +2170,25 @@ function moveMarkModal(m) {
   document.querySelectorAll("[data-to]").forEach((b) => (b.onclick = async () => {
     closeModal();
     const W0 = S.pi.W, H0 = S.pi.H, to = Number(b.dataset.to), tk = S.pages[to].key;
-    if (!floorOfPage(tk)) { toast("그 도면은 층이 지정되지 않았습니다 · 먼저 층을 지정하세요"); return; }
+    if (marks.length && !floorOfPage(tk)) { toast("그 도면은 층이 지정되지 않았습니다 · 먼저 층을 지정하세요"); return; }
     pushUndo();
     await showPage(to);
-    const sx = S.pi.W / W0, sy = S.pi.H / H0, sc = (q) => [q[0] * sx, q[1] * sy];
-    const { id, pageKey, no, createdAt, updatedAt, deleted, ...rest } = clone(m);
-    const n = { ...rest, id: uid(), pageKey: tk, no: nextNo(floorOfPage(tk)), pts: m.pts.map(sc), createdAt: now(), updatedAt: now() };
-    if (m.lab) n.lab = sc(m.lab);
-    S.proj.marks.push(n);
-    if (mode === "move") { m.deleted = true; m.updatedAt = now(); touch(m.pageKey); }
-    S.sel = n.id; touch(tk); focusMark(n); renderOverlay(); renderPanel();
-    toast(`${floorOfPage(tk)} ${n.no}번으로 ${mode === "move" ? "옮겼습니다" : "복사했습니다"} · 되돌리기로 취소할 수 있습니다`, 3500);
+    const sx = S.pi.W / W0, sy = S.pi.H / H0, sc = (q) => [q[0] * sx, q[1] * sy], t = now(), made = [];
+    for (const it of [...marks, ...notes]) {
+      const { id, pageKey, no, createdAt, updatedAt, deleted, ...rest } = clone(it);
+      const n = { ...rest, id: uid(), pageKey: tk, createdAt: t, updatedAt: t };
+      if (it.pts) n.pts = it.pts.map(sc);
+      if (it.at) n.at = sc(it.at);
+      if (it.lab) n.lab = sc(it.lab);
+      if (!it.kind) { n.no = nextNo(floorOfPage(tk)); S.proj.marks.push(n); } else { S.proj.notes = S.proj.notes || []; S.proj.notes.push(n); }
+      made.push(n);
+      if (mode === "move") { it.deleted = true; it.updatedAt = t; touch(it.pageKey); }
+    }
+    touch(tk);
+    if (made.length > 1) { S.multi = { ids: made.map((x) => x.id) }; S.sel = null; } else { S.sel = made[0].id; focusMark(made[0]); }
+    renderOverlay(); renderPanel();
+    const nos = made.filter((x) => !x.kind).map((x) => x.no);
+    toast(`${floorOfPage(tk) || "그 도면"}${nos.length ? ` ${nos[0]}${nos.length > 1 ? "~" + nos[nos.length - 1] : ""}번` : ""}으로 ${made.length > 1 ? made.length + "개 " : ""}${mode === "move" ? "옮겼습니다" : "복사했습니다"} · 되돌리기로 취소할 수 있습니다`, 3500);
   }));
 }
 function focusMark(m) {
@@ -2668,6 +2765,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build ec67203427 -->
+<!-- build d41d0a9322 -->
 </body>
 </html>
