@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "797c2368ae"; window.DY_BUILT = "2026-10-21 13:21";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "a05ac28493"; window.DY_BUILT = "2026-10-21 13:45";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -493,7 +493,8 @@ function groupOf(t) { const g = groups().find((x) => x.items.includes(t)); retur
 // 버튼 눌림: 고른 게 "수직+수평균열"이면 수직균열·수평균열 버튼이 눌림
 function typeOn(sel, v) { const d = crackDirs(v); return sel.includes(v) || (!!d && d.length === 1 && sel.some((x) => (crackDirs(x) || []).includes(d[0]))); }
 function isCrackType(t) { return groupOf(t) === SINGLE_GROUP || /균열/.test(t); }
-function hasCrack(m) { return splitTypes(m.dtype).some(isCrackType); }
+// 망상균열은 면적(㎡)으로 셈 → 폭도 m (3종 양식 결함물량 기준)
+function hasCrack(m) { return splitTypes(m.dtype).some((t) => isCrackType(t) && !/망상/.test(t)); }
 function widthUnit(m) { return hasCrack(m) ? "mm" : (m.dtype ? "m" : ""); }
 function live() { return S.proj ? S.proj.marks.filter((m) => !m.deleted) : []; }
 function liveNotes() { return S.proj ? (S.proj.notes || []).filter((n) => !n.deleted) : []; }
@@ -1850,7 +1851,7 @@ function exportModal() {
     <div class="menu">
       <button class="btn" id="x-pdf">표시된 야장 PDF<small>도면 + 번호 표시</small></button>
       <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
-      <button class="btn" id="x-xlsx">결함 목록 엑셀<small>층·번호·부재·종류·폭×길이·개수·사진</small></button>
+      <button class="btn" id="x-xlsx">외관조사 결과표 엑셀<small>3종 양식 칸 그대로 · B6:P 복사해 붙여넣기</small></button>
       <button class="btn" id="x-json">백업 파일 저장<small>하루 끝에 한 번</small></button>
     </div>
     <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
@@ -1938,40 +1939,81 @@ function sortedRows() {
   return [...live()].sort((a, b) => (floorKey(floorOf(a)) - floorKey(floorOf(b))) || String(floorOf(a)).localeCompare(String(floorOf(b))) || ((a.no || 0) - (b.no || 0)) || (order.get(a.pageKey) - order.get(b.pageKey)));
 }
 const asNum = (v) => (v !== "" && v != null && !isNaN(Number(v)) ? Number(v) : (v ?? ""));
+// 3종 정기점검 양식(외관조사결함표, 사진첩 xlsm)의 '외관조사 결과표'와 같은 칸: 6행부터 B~P
+// → 엑셀에서 B6:P(끝)를 복사해 양식 6행에 붙여넣으면 됨. 표기는 양식에 쓰던 문구로 바꿈
+const F3_PRI = { "건식주입공법": 1, "방청 후 단면복구": 1, "표면처리공법①": 2, "표면처리공법②": 2, "단면복구": 2, "표면처리공법③": 3, "표면처리공법④": 3, "충전공법": 3, "몰탈보수": 3, "도장보수": 3 };
+const F3_TYPES = ["균열", "수직균열", "수평균열", "경사균열", "망상균열", "이질재료 접합부 이격", "누수흔적", "미장들뜸", "미장박리", "미장박락", "미장균열", "도장박리", "도장박락", "콘크리트 박리", "콘크리트 박락", "철근노출"];
+function f3Floor(f) {
+  const s = String(f || "").trim(); let m;
+  if ((m = s.match(/^(\d+)층$/))) return { name: "지상" + m[1] + "층", code: m[1] };
+  if ((m = s.match(/^지상(\d+)층$/))) return { name: s, code: m[1] };
+  if ((m = s.match(/^(?:지하|B)\s*(\d+)/i))) return { name: "지하" + m[1] + "층", code: "B" + m[1] };
+  if (/지붕|옥상/.test(s)) return { name: "지붕층", code: "R" };
+  if (/옥탑/.test(s)) return { name: "옥탑층", code: "PH" };
+  return { name: s, code: s };
+}
+// 결함종류 한 개(양식 표기)의 발생원인·보수방안. 구조체(기둥·보·슬래브·RC벽) 균열은 폭 0.3mm로 나눔
+function f3Fix(t, member, w) {
+  const st = !/조적/.test(member) && /기둥|보|슬래브|벽체|처마/.test(member), big = Number(w) >= 0.3;
+  if (/이격/.test(t)) return ["이질재료", "충전공법"];
+  if (/망상/.test(t)) return ["건조수축", st ? "표면처리공법②" : "표면처리공법④"];
+  if (/^미장/.test(t)) return /균열/.test(t) ? ["건조수축", "표면처리공법③"] : ["노후화, 시공불량", "몰탈보수"];
+  if (/균열/.test(t)) return ["건조수축", st ? (big ? "건식주입공법" : "표면처리공법①") : (big ? "충전공법" : "표면처리공법③")];
+  if (/누수/.test(t)) return ["수분유입", "표면처리공법②"];
+  if (/^도장/.test(t)) return ["노후화", "도장보수"];
+  if (/철근/.test(t)) return ["노후화, 시공불량", "방청 후 단면복구"];
+  if (/^콘크리트/.test(t)) return ["노후화, 시공불량", "단면복구"];
+  return ["", ""];
+}
 async function exportXlsx() {
   if (!window.XLSX) throw new Error("엑셀 기능을 불러오지 못했습니다 (인터넷 확인)");
   const pageName = new Map(S.pages.map((p) => [p.key, p.name + ((S.proj.files.find((f) => f.fid === p.fid) || {}).pageCount > 1 ? ` p.${p.i + 1}` : "")]));
-  // 폭 단위: 균열이 있으면 mm, 박리·누수 등만 있으면 m. 길이는 항상 m
-  const rows = sortedRows().map((m) => ({
-    "층": floorOf(m), "번호": m.no, "부재": m.member, "결함종류": typeLabel(m.dtype),
-    "폭": asNum(m.w), "길이(m)": asNum(m.l), "단위": m.w || m.l ? (widthUnit(m) === "mm" ? "mm×m" : "m×m") : "", "개수": asNum(m.count), "사진번호": m.photo,
-    "메모": m.memo, "표시": KIND_LABEL[m.type], "도면": pageName.get(m.pageKey) || "",
-  }));
+  // 양식 순서: 지붕층 → 위층 → … → 지하 → 외부 등 그 밖의 층
+  const fk = (m) => { const k = floorKey(floorOf(m)); return k >= 5000 ? -1e5 : -k; };
+  const marks = sortedRows().sort((a, b) => (fk(b) - fk(a)) || String(floorOf(a)).localeCompare(String(floorOf(b))) || ((a.no || 0) - (b.no || 0)));
+  // 빈 값은 칸을 아예 안 만듦 (빈 글자가 들어가면 양식 물량 수식이 #VALUE!)
+  const ws = {}, put = (ref, v) => (v.f || (v.v !== "" && v.v != null) ? (ws[ref] = v) : v);
+  const str = (v) => ({ t: "s", v: String(v ?? "") }), num = (v) => { const n = asNum(v); return typeof n === "number" ? { t: "n", v: n } : str(n); };
+  const note = (cell, t) => { cell.c = [{ a: "결함 야장", t }]; cell.c.hidden = true; return cell; };
+  put("B2", str("※ B6부터 P열 끝까지 복사해서 양식 '외관조사 결과표' 6행에 붙여넣기 (Q·R열은 참고용, 복사 안 함)"));
+  put("B3", str(`『${S.proj.name}』 외관조사 결과표`));
+  [["B4", "번호"], ["C4", "위치"], ["D4", "층"], ["E4", "부재명"], ["F4", "결함유형"], ["G4", "결함규격"], ["L4", "발생원인"], ["M4", "보수방안"], ["N4", "우선순위"], ["O4", "사진\n번호"], ["P5", "사진번호"],
+    ["G5", "폭(㎜)/\n너비(m)"], ["H5", "길이"], ["I5", "단위"], ["J5", "개소"], ["K5", "물량"], ["Q4", "메모(참고)"], ["R4", "도면(참고)"]].forEach(([r, v]) => put(r, str(v)));
+  const merges = ["B3:P3", "B4:B5", "C4:C5", "D4:D5", "E4:E5", "F4:F5", "G4:K4", "L4:L5", "M4:M5", "N4:N5", "O4:O5", "Q4:Q5", "R4:R5"].map((x) => XLSX.utils.decode_range(x));
+  let r = 6;
+  marks.forEach((m, i) => {
+    const fl = f3Floor(floorOf(m));
+    const member = m.member === "천장 보" ? "천장보" : (m.member || "");
+    // 수직+수평균열 → 수직, 수평균열 / 접합부 이격 균열 → 이질재료 접합부 이격 / 미장 박리 → 미장박리 (콘크리트는 띄어 씀)
+    const defect = typeLabel(m.dtype).replace(/접합부 이격 균열/g, "이질재료 접합부 이격").replace(/(수직|수평|경사)\+/g, "$1, ").replace(/(미장|도장) /g, "$1");
+    const each = splitTypes(m.dtype).map((t) => t.replace(/접합부 이격 균열/, "이질재료 접합부 이격").replace(/(미장|도장) /, "$1"));
+    const fixes = each.map((t) => f3Fix(t, member, m.w));
+    const best = fixes.filter((f) => f[1]).sort((a, b) => (F3_PRI[a[1]] || 9) - (F3_PRI[b[1]] || 9))[0] || ["", ""];
+    const cause = [...new Set(fixes.flatMap((f) => (f[0] ? f[0].split(", ") : [])))].join(", ");
+    const linear = each.length && each.every((t) => /이격/.test(t) || (/균열/.test(t) && !/망상/.test(t)));
+    const unit = !each.length && !m.w && !m.l ? "" : linear ? "m" : "㎡";
+    put(`B${r}`, str(fl.code && m.no ? `${fl.code}-${m.no}` : m.no || ""));
+    put(`D${r}`, str(fl.name)); put(`E${r}`, str(member));
+    const fc = put(`F${r}`, str(defect));
+    const odd = each.filter((t) => !F3_TYPES.includes(t) && !crackDirs(t));
+    if (odd.length) note(fc, `양식 예시에 없는 문구: ${odd.join(", ")}`);
+    const gc = put(`G${r}`, num(m.w)); put(`H${r}`, num(m.l)); put(`I${r}`, str(unit)); put(`J${r}`, num(m.count || 1));
+    if (unit === "㎡" && widthUnit(m) === "mm" && m.w) note(gc, "앱에서 폭을 mm로 입력함 → 너비(m) 확인");
+    put(`K${r}`, { t: "s", v: "", f: `IF(I${r}="m",H${r}*J${r}&"m",IF(I${r}="㎡",G${r}*H${r}*J${r}&"㎡",IF(I${r}="EA",J${r}&"EA","-")))` });
+    put(`L${r}`, str(cause)); put(`M${r}`, str(best[1]));
+    if (F3_PRI[best[1]]) put(`N${r}`, { t: "n", v: F3_PRI[best[1]] });
+    put(`O${r}`, { t: "n", v: i + 1 }); put(`P${r}`, str(m.photo || ""));
+    put(`Q${r}`, str(m.memo || "")); put(`R${r}`, str(pageName.get(m.pageKey) || ""));
+    r++;
+  });
+  put(`B${r}`, str("- 이 하 여 백 -")); merges.push(XLSX.utils.decode_range(`B${r}:P${r}`));
+  ws["!ref"] = `A1:R${r}`;
+  ws["!merges"] = merges;
+  ws["!cols"] = [3, 7, 8, 9, 14, 22, 8, 7, 5, 5, 9, 14, 15, 6, 5, 9, 24, 20].map((w) => ({ wch: w }));
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ "층": "", "번호": "", "부재": "", "결함종류": "", "폭": "", "길이(m)": "", "단위": "", "개수": "", "사진번호": "", "메모": "", "표시": "", "도면": "" }]);
-  ws["!cols"] = [8, 6, 13, 24, 7, 8, 7, 6, 13, 24, 7, 24].map((w) => ({ wch: w }));
-  XLSX.utils.book_append_sheet(wb, ws, "결함목록");
-  // 층·부재·결함종류별 물량 (여러 종류를 고른 결함은 종류마다 1개소씩)
-  // 균열은 길이 합(m) = 길이×개수, 나머지는 면적 합(m²) = 폭×길이×개수 (폭이 m일 때만)
-  const agg = new Map();
-  for (const m of sortedRows()) {
-    const cnt = parseInt(m.count, 10) || 1, w = Number(m.w), l = Number(m.l);
-    const okL = m.l !== "" && !isNaN(l), okW = m.w !== "" && !isNaN(w);
-    for (const t of splitTypes(m.dtype).length ? splitTypes(m.dtype) : [""]) {
-      const key = [floorOf(m), m.member, t].join("\u0001");
-      const a = agg.get(key) || { "층": floorOf(m), "부재": m.member, "결함종류": t, "개소": 0, "개수 합": 0, "길이 합(m)": 0, "면적 합(m²)": 0 };
-      a["개소"] += 1; a["개수 합"] += cnt;
-      if (isCrackType(t)) { if (okL) a["길이 합(m)"] += l * cnt; }
-      else if (widthUnit(m) === "m" && okL && okW) a["면적 합(m²)"] += w * l * cnt;
-      agg.set(key, a);
-    }
-  }
-  const r3 = (v) => Math.round(v * 1000) / 1000;
-  const ws2 = XLSX.utils.json_to_sheet([...agg.values()].map((a) => ({ ...a, "길이 합(m)": r3(a["길이 합(m)"]) || "", "면적 합(m²)": r3(a["면적 합(m²)"]) || "" })));
-  ws2["!cols"] = [8, 13, 18, 7, 8, 10, 11].map((w) => ({ wch: w }));
-  XLSX.utils.book_append_sheet(wb, ws2, "물량집계");
+  XLSX.utils.book_append_sheet(wb, ws, "외관조사 결과표");
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  await saveFile(`${S.proj.name}_결함목록.xlsx`, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  await saveFile(`${S.proj.name}_외관조사 결과표.xlsx`, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
 }
 
 /* ---------------- 내보내기: PDF ---------------- */
@@ -2212,6 +2254,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 797c2368ae -->
+<!-- build a05ac28493 -->
 </body>
 </html>
