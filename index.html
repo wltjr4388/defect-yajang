@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1b395ddcdc"; window.DY_BUILT = "2026-10-21 13:55";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "be0e722336"; window.DY_BUILT = "2026-10-21 13:56";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1969,7 +1969,6 @@ function f3Fix(t, member, w) {
 }
 async function exportXlsx() {
   if (!window.XLSX) throw new Error("엑셀 기능을 불러오지 못했습니다 (인터넷 확인)");
-  const pageName = new Map(S.pages.map((p) => [p.key, p.name + ((S.proj.files.find((f) => f.fid === p.fid) || {}).pageCount > 1 ? ` p.${p.i + 1}` : "")]));
   // 양식 순서: 지붕층 → 위층 → … → 지하 → 외부 등 그 밖의 층
   const fk = (m) => { const k = floorKey(floorOf(m)); return k >= 5000 ? -1e5 : -k; };
   const marks = sortedRows().sort((a, b) => (fk(b) - fk(a)) || String(floorOf(a)).localeCompare(String(floorOf(b))) || ((a.no || 0) - (b.no || 0)));
@@ -1977,11 +1976,11 @@ async function exportXlsx() {
   const ws = {}, put = (ref, v) => (v.f || (v.v !== "" && v.v != null) ? (ws[ref] = v) : v);
   const str = (v) => ({ t: "s", v: nfc(v) }), num = (v) => { const n = asNum(v); return typeof n === "number" ? { t: "n", v: n } : str(n); };
   const note = (cell, t) => { cell.c = [{ a: "결함 야장", t }]; cell.c.hidden = true; return cell; };
-  put("B2", str("※ B6부터 P열 끝까지 복사해서 양식 '외관조사 결과표' 6행에 붙여넣기 (Q·R열은 참고용, 복사 안 함)"));
+  put("B2", str("※ B6부터 P열 끝까지 복사해서 양식 '외관조사 결과표' 6행에 붙여넣기 (Q열 메모는 참고용, 복사 안 함)"));
   put("B3", str(`『${S.proj.name}』 외관조사 결과표`));
   [["B4", "번호"], ["C4", "위치"], ["D4", "층"], ["E4", "부재명"], ["F4", "결함유형"], ["G4", "결함규격"], ["L4", "발생원인"], ["M4", "보수방안"], ["N4", "우선순위"], ["O4", "사진\n번호"], ["P5", "사진번호"],
-    ["G5", "폭(㎜)/\n너비(m)"], ["H5", "길이"], ["I5", "단위"], ["J5", "개소"], ["K5", "물량"], ["Q4", "메모(참고)"], ["R4", "도면(참고)"]].forEach(([r, v]) => put(r, str(v)));
-  const merges = ["B3:P3", "B4:B5", "C4:C5", "D4:D5", "E4:E5", "F4:F5", "G4:K4", "L4:L5", "M4:M5", "N4:N5", "O4:O5", "Q4:Q5", "R4:R5"].map((x) => XLSX.utils.decode_range(x));
+    ["G5", "폭(㎜)/\n너비(m)"], ["H5", "길이"], ["I5", "단위"], ["J5", "개소"], ["K5", "물량"], ["Q4", "메모(참고)"]].forEach(([r, v]) => put(r, str(v)));
+  const merges = ["B3:P3", "B4:B5", "C4:C5", "D4:D5", "E4:E5", "F4:F5", "G4:K4", "L4:L5", "M4:M5", "N4:N5", "O4:O5", "Q4:Q5"].map((x) => XLSX.utils.decode_range(x));
   let r = 6;
   marks.forEach((m, i) => {
     const fl = f3Floor(floorOf(m));
@@ -2005,13 +2004,13 @@ async function exportXlsx() {
     put(`L${r}`, str(cause)); put(`M${r}`, str(best[1]));
     if (F3_PRI[best[1]]) put(`N${r}`, { t: "n", v: F3_PRI[best[1]] });
     put(`O${r}`, { t: "n", v: i + 1 }); put(`P${r}`, str(m.photo || ""));
-    put(`Q${r}`, str(m.memo || "")); put(`R${r}`, str(pageName.get(m.pageKey) || ""));
+    put(`Q${r}`, str(m.memo || ""));
     r++;
   });
   put(`B${r}`, str("- 이 하 여 백 -")); merges.push(XLSX.utils.decode_range(`B${r}:P${r}`));
-  ws["!ref"] = `A1:R${r}`;
+  ws["!ref"] = `A1:Q${r}`;
   ws["!merges"] = merges;
-  ws["!cols"] = [3, 7, 8, 9, 14, 22, 8, 7, 5, 5, 9, 14, 15, 6, 5, 9, 24, 20].map((w) => ({ wch: w }));
+  ws["!cols"] = [3, 7, 8, 9, 14, 22, 8, 7, 5, 5, 9, 14, 15, 6, 5, 9, 24].map((w) => ({ wch: w }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "외관조사 결과표");
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -2256,6 +2255,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 1b395ddcdc -->
+<!-- build be0e722336 -->
 </body>
 </html>
