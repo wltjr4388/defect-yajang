@@ -323,7 +323,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "15daef60e5"; window.DY_BUILT = "2026-10-21 17:51";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1e3faee638"; window.DY_BUILT = "2026-10-21 18:01";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -388,6 +388,9 @@ function rbNext(exceptId) {
 // 압축강도는 범위(42~45), 부재규격은 두 치수(400×600)
 function compText(m) { return m.cmin || m.cmax ? `${m.cmin || "?"}~${m.cmax || "?"}` : ""; }
 function sizeText(m) { return m.sw || m.sh ? `${m.sw || "?"}×${m.sh || "?"}` : ""; }
+// 장비조사: 점 = 수평부재(보·슬래브), 화살표 = 수직부재(기둥·벽체). 직접 입력한 부재는 양쪽 다 보임
+const isHorizMember = (x) => /보|슬래브/.test(x), isVertMember = (x) => /벽|기둥/.test(x);
+function eqMemberKeep(m) { const v = m.type === "arrow"; return (x) => (v ? isVertMember(x) : isHorizMember(x)) || (!isHorizMember(x) && !isVertMember(x)); }
 function isEquip(p) { p = p === undefined ? S.proj : p; return FEATURE_EQUIP && !!p && p.kind === "equip"; }
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
 const PEN_COLORS = [["#d6332a", "빨강"], ["#1d5bd8", "파랑"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#16202b", "검정"]];
@@ -871,7 +874,7 @@ async function renderHome() {
       ${FEATURE_EQUIP ? `<div class="dtabs htabs" role="tablist">${[["defect", "결함 야장", COL.mark], ["equip", "장비 야장", COL.equip]].map(([v, nm, c]) => `<button role="tab" data-htab="${v}" aria-selected="${tab === v}"><span class="kdot" style="background:${c}"></span>${nm}</button>`).join("")}</div>` : ""}
       <div class="intro">
         ${tab === "equip" ? `<h1>도면 위에 조사 위치를 찍고, 항목별 위치도와 목록을 뽑습니다</h1>
-        <p>위치마다 철근배근·압축강도·부재규격을 체크하세요. 번호는 층마다 1번부터 붙고, 엑셀·항목별 PDF로 내보낼 때 건물 전체를 이어서 R-1·S-1·D-1로 다시 붙습니다.</p>` : `<h1>도면 위에 결함을 찍고, 목록과 야장을 바로 뽑습니다</h1>
+        <p>점은 수평부재(보·슬래브), 화살표는 수직부재(기둥·벽체)입니다. 위치마다 철근배근·압축강도·부재규격을 체크하세요. 번호는 층마다 1번부터 붙고, 엑셀·항목별 PDF로 내보낼 때 건물 전체를 이어서 R-1·S-1·D-1로 다시 붙습니다.</p>` : `<h1>도면 위에 결함을 찍고, 목록과 야장을 바로 뽑습니다</h1>
         <p>PDF나 사진 도면을 올리고 점·화살표·영역으로 결함 위치를 표시하세요. 번호는 층마다 자동으로 붙고, 부재·결함종류는 버튼으로 고릅니다. 끝나면 표시된 야장 PDF와 결함 목록 엑셀로 내보냅니다.</p>`}
         <div class="actions">
           <button class="btn primary" id="b-new">${tab === "equip" ? "새 장비조사" : "새 조사 시작"}</button>
@@ -1092,7 +1095,7 @@ function renderBar() {
         <button class="ibtn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
       </span>
       <span class="tools" role="group" aria-label="표시 도구">
-        ${(isEquip() ? ["point", "arrow", "pen", "eraser"] : ["point", "arrow", "area", "pen", "eraser"]).map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || (isEquip() && t === "point" ? "위치" : KIND_LABEL[t])}</span></button>`).join("")}
+        ${(isEquip() ? ["point", "arrow", "pen", "eraser"] : ["point", "arrow", "area", "pen", "eraser"]).map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
       </span>
       <span class="bt-r">
       </span>
@@ -1132,7 +1135,7 @@ function renderPenBar() {
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: `${isEquip() ? "조사" : "결함"} 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다`, arrow: "위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: isEquip() ? "수평부재(보·슬래브) 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다" : "결함 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다", arrow: isEquip() ? "수직부재(기둥·벽체) 위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다" : "위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1659,7 +1662,7 @@ function finishDraw(g) {
     createdAt: now(), updatedAt: now(),
   };
   if (lab) m.lab = lab;
-  if (isEquip()) m.items = [...(S.lastInput.items || [])];   // 장비: 직전 위치의 조사 항목을 그대로
+  if (isEquip()) { m.items = [...(S.lastInput.items || [])]; m.member = (type === "arrow" ? S.lastInput.memberV : S.lastInput.memberH) || ""; }   // 장비: 직전 항목, 같은 종류(수평/수직)의 직전 부재
   S.proj.marks.push(m);
   S.sel = m.id;
   touch(k);
@@ -1764,8 +1767,9 @@ function chipsHTML(field, list, val) {
   const all = [...list]; if (val && !all.includes(val)) all.push(val);
   return `<div class="chips" data-field="${field}">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${v === val}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="${field}">+ 직접</button></div>`;
 }
-function memberHTML(val) {
-  const base = [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
+function memberHTML(val, keep) {
+  let base = [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
+  if (keep) base = base.filter(keep);
   const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
   return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
 }
@@ -1808,10 +1812,10 @@ function renderEquipPanel(P, m) {
   P.innerHTML = `
     <div class="ph">
       <span class="big"><button class="no-edit" id="f-no">위치 <span class="num" style="color:${COL.equip}">${esc(m.no)}</span><small>번호 바꾸기</small></button></span>
-      <span class="meta">${esc(floor || "층 미지정")}</span>
+      <span class="meta">${esc(floor || "층 미지정")} · ${m.type === "arrow" ? "화살표(수직)" : "점(수평)"}</span>
     </div>
     ${equipSummary(m)}
-    <div class="fld sec"><span class="lab">부재</span>${memberHTML(m.member)}</div>
+    <div class="fld sec"><span class="lab">부재 <span style="font-weight:500;color:var(--muted)">· ${m.type === "arrow" ? "수직부재" : "수평부재"}</span></span>${memberHTML(m.member, eqMemberKeep(m))}</div>
     <div class="fld sec"><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
     ${rebar ? `<div class="fld sec"><span class="lab">철근배근 이미지번호</span>
       <div class="rbxyz">${RB_AXES.map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
@@ -1826,7 +1830,8 @@ function renderEquipPanel(P, m) {
   const upd = (field, v, rerender) => {
     const mm = selMark(); if (!mm) return;
     mm[field] = v; mm.updatedAt = now(); S.redo = []; updateUndoBtns();
-    if (field === "member" || field === "items") S.lastInput[field] = v;
+    if (field === "items") S.lastInput.items = v;
+    if (field === "member") S.lastInput[mm.type === "arrow" ? "memberV" : "memberH"] = v;
     touch(mm.pageKey);
     if (rerender) { renderPanel(); renderOverlay(); }
     else { const sm = P.querySelector(".msum"); if (sm) sm.outerHTML = equipSummary(mm); }
@@ -2042,7 +2047,7 @@ function renderPageSummary(P) {
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>`}
       </button>`).join("")}</div>` : ""}
     <p class="help">
-      ${isEquip() ? "<b>위치·화살표</b> 조사 위치를 찍고 부재와 조사 항목(철근배근·압축강도·부재규격)을 체크합니다. 번호는 층마다 1번부터 붙고, 내보낼 때 항목별로 건물 전체를 이어서 R-1·S-1·D-1로 다시 붙습니다.<br>" : ""}<b>점·화살표</b> 결함 위치를 한 번 찍으면 점(화살표 도구면 화살표)이 생기고, 찍은 채로 끌면 번호가 끈 곳으로 갑니다.<br>
+      ${isEquip() ? "<b>점</b> 수평부재(보·슬래브), <b>화살표</b> 수직부재(기둥·벽체) 위치를 찍고 부재와 조사 항목(철근배근·압축강도·부재규격)을 체크합니다. 번호는 층마다 1번부터 붙고, 내보낼 때 항목별로 건물 전체를 이어서 R-1·S-1·D-1로 다시 붙습니다.<br>" : ""}<b>점·화살표</b> 결함 위치를 한 번 찍으면 점(화살표 도구면 화살표)이 생기고, 찍은 채로 끌면 번호가 끈 곳으로 갑니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기는 도면 위쪽 펜 줄에서 고릅니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 표시는 애플펜슬·S펜으로 하고, 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 표시하려면 설정(톱니바퀴) → 손가락에서 바꾸세요(그때 이동은 두 손가락).
@@ -2611,6 +2616,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 15daef60e5 -->
+<!-- build 1e3faee638 -->
 </body>
 </html>
