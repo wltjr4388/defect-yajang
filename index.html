@@ -231,7 +231,8 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
 .swatch.editing { box-shadow: 0 0 0 3px var(--accent); }
 .pal-tip { margin-top: 10px; font-size: 13px; color: var(--muted); }
 .pal-tip .linkbtn { border: 0; background: none; padding: 4px 2px; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; }
-.swatch.more { background: none; border: 2px dashed var(--muted); box-shadow: none; color: var(--ink); font-size: 22px; line-height: 1; display: inline-grid; place-items: center; padding: 0; }   /* 색 추가: 빈 동그라미 + */
+.swatch.more { background: none; border: 2px dashed var(--muted); box-shadow: none; color: var(--ink); display: inline-grid; place-items: center; padding: 0; }   /* 색 추가: 빈 동그라미 + (글자 말고 선으로: 글꼴 따라 위아래 치우침) */
+.swatch.more svg { width: 55%; height: 55%; display: block; }
 .swatch.more[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--accent); }
 .palette { display: grid; grid-template-columns: repeat(13, 1fr); margin-top: 10px; border-radius: 10px; overflow: hidden; max-width: 420px; }
 .palette button { aspect-ratio: 1; border: 0; padding: 0; min-width: 0; }
@@ -310,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "03ce40721c"; window.DY_BUILT = "2026-10-21 15:57";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c30d2bf157"; window.DY_BUILT = "2026-10-21 15:59";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1055,7 +1056,7 @@ function renderPenBar() {
   pb.innerHTML = `<div class="pb-row">
       ${penColors().map(([c, nm], i) => `<button class="swatch${palSlot === i ? " editing" : ""}" data-pc="${c}" data-slot="${i}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}
       ${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}
-      <button class="swatch more" data-pal aria-label="색 추가 (색상표)" aria-expanded="${palOpen}">+</button>
+      <button class="swatch more" data-pal aria-label="색 추가 (색상표)" aria-expanded="${palOpen}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button>
       <span class="sep"></span>
       ${PEN_WIDTHS.map(([w, nm]) => `<button class="pb-w" data-pw="${w}" aria-label="${nm}" aria-pressed="${(st.w || 1) === w}"><i style="height:${Math.max(2, w * 3)}px;background:var(--ink)"></i></button>`).join("")}
     </div>
@@ -1230,7 +1231,7 @@ function paletteHTML(pc) {
 }
 function penOptsHTML(cur) {
   const pc = penColor(cur), custom = !penColors().some(([c]) => c === pc);
-  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${penColors().map(([c, nm], i) => `<button class="swatch${palSlot === i ? " editing" : ""}" data-pc="${c}" data-slot="${i}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}<button class="swatch more" data-pal aria-label="색 추가 (색상표)" aria-expanded="${palOpen}">+</button></div>
+  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${penColors().map(([c, nm], i) => `<button class="swatch${palSlot === i ? " editing" : ""}" data-pc="${c}" data-slot="${i}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}<button class="swatch more" data-pal aria-label="색 추가 (색상표)" aria-expanded="${palOpen}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button></div>
       ${palOpen ? paletteHTML(pc) : ""}</div>
     <div class="fld"><span class="lab">선 두께</span><div class="chips">${PEN_WIDTHS.map(([w, nm]) => `<button class="chip wchip" data-pw="${w}" aria-pressed="${((cur && cur.w) || 1) === w}"><i style="height:${Math.max(2, w * 3)}px"></i>${nm}</button>`).join("")}</div></div>`;
 }
@@ -2327,6 +2328,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 03ce40721c -->
+<!-- build c30d2bf157 -->
 </body>
 </html>
