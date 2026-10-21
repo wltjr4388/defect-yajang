@@ -114,7 +114,23 @@ button { cursor: pointer; }
 
 /* ---------- work ---------- */
 #work { height: 100%; display: flex; flex-direction: column; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-block: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar { display: grid; background: var(--surface); border-bottom: 1px solid var(--line); }
+/* 굿노트처럼 2줄: 위 = 홈·조사 이름·도면 넘기기·설정·내보내기, 아래 = 가운데 아이콘 도구 */
+.bar-top, .bar-tools { display: flex; align-items: center; gap: 8px; padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); min-width: 0; }
+.bar-top { padding-block: 6px; }
+.bar-tools { display: grid; grid-template-columns: 1fr auto 1fr; padding-block: 2px 4px; border-top: 1px solid var(--line); }
+.bar-tools .bt-l, .bar-tools .bt-r { display: flex; gap: 4px; align-items: center; }
+.bar-tools .bt-r { justify-content: flex-end; }
+.ibtn { width: 44px; min-height: 44px; padding: 0; border: 0; background: none; border-radius: 10px; display: inline-grid; place-items: center; color: var(--ink); }
+.ibtn:disabled { opacity: .35; }
+.ibtn svg { width: 22px; height: 22px; }
+.ibtn.lbl { width: auto; padding: 2px 8px; gap: 1px; font-size: 11px; color: var(--muted); }
+.ibtn.lbl svg { color: var(--ink); }
+.ibtn.on { color: var(--warn); }
+.ibtn.on svg { color: var(--warn); }
+.bar-top .pname { flex: 0 1 auto; min-width: 0; }
+.bar-top .pager { min-width: 0; flex: 0 1 auto; }
+.btn.share svg { width: 18px; height: 18px; }
 .bar .sep { width: 1px; height: 28px; background: var(--line); }
 .bar .grow { flex: 1; }
 .pname { font-weight: 700; max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -124,11 +140,12 @@ button { cursor: pointer; }
 .floor-btn.unset { color: var(--warn); border-color: var(--warn); }
 .btn.finger { white-space: nowrap; font-size: 14px; }
 .btn.finger.on { color: var(--warn); border-color: var(--warn); }
-.tools { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
-.tools button { min-height: var(--tap); padding: 0 12px; border: 0; background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
-.tools button + button { border-left: 1px solid var(--line); }
-.tools button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
-.tools svg { width: 18px; height: 18px; }
+.tools { display: inline-flex; gap: 4px; }
+.tools button { min-height: 46px; min-width: 56px; padding: 3px 8px; border: 0; border-radius: 10px; background: none; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.tools button svg { color: var(--ink); }
+.tools button[aria-pressed="true"], .tools button[aria-pressed="true"] svg { background: var(--accent); color: var(--accent-ink); }
+.tools button[aria-pressed="true"] svg { background: none; }
+.tools svg { width: 22px; height: 22px; }
 .sync { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 4px 8px; border-radius: 999px; background: var(--surface-2); white-space: nowrap; }
 .sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
 .sync.ok i { background: var(--ok); }
@@ -293,7 +310,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "cba7586fb1"; window.DY_BUILT = "2026-10-21 15:40";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "96bed80eb3"; window.DY_BUILT = "2026-10-21 15:48";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -973,33 +990,43 @@ const ICON = {
   redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg>`,
   fit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`,
   gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
+  home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>`,
+  share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v8h14v-8"/></svg>`,
+  hand: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5a1.5 1.5 0 0 1 3 0v6M11 11V3.5a1.5 1.5 0 0 1 3 0V11M14 11V5a1.5 1.5 0 0 1 3 0v7M17 9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L3.3 14a1.5 1.5 0 0 1 2.5-1.6L8 15"/></svg>`,
 };
 function renderBar() {
   const p = S.proj; if (!p) return;
   const pg = S.pages[S.cur];
   const fl = pg ? floorOfPage(pg.key) : "";
   $("#bar").innerHTML = `
-    <button class="btn ghost" id="t-home" aria-label="조사 목록">${ICON.back}</button>
-    <span class="pname" title="${esc(p.name)}">${esc(p.name)}</span>
-    <span class="sep"></span>
-    <span class="pager">
-      <button class="btn" id="t-prev" aria-label="이전 도면" ${S.cur <= 0 ? "disabled" : ""}>${ICON.prev}</button>
-      <button class="btn pg" id="t-pages">${pg ? `${S.cur + 1}/${S.pages.length} · ${esc(pg.name)}${pg && (S.proj.files.find((f) => f.fid === pg.fid) || {}).pageCount > 1 ? ` p.${pg.i + 1}` : ""}` : "도면 없음"}</button>
-      <button class="btn" id="t-next" aria-label="다음 도면" ${S.cur >= S.pages.length - 1 ? "disabled" : ""}>${ICON.next}</button>
-    </span>
-    <button class="btn floor-btn ${fl ? "" : "unset"}" id="t-floor">${fl ? esc(fl) : "층 지정"}</button>
-    <span class="sep"></span>
-    <span class="tools" role="group" aria-label="표시 도구">
-      ${["point", "arrow", "area", "pen", "eraser"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
-    </span>
-    <button class="btn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
-    <button class="btn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
-    <button class="btn" id="t-fit" aria-label="화면 맞춤">${ICON.fit}</button>
-    <button class="btn finger ${fingerMode() === "draw" ? "on" : ""}" id="t-finger" aria-label="손가락 쓰임 바꾸기">손가락 ${fingerMode() === "pan" ? "이동" : "그리기"}</button>
-    <span class="grow"></span>
-    <span class="sync" id="sync"></span>
-    <button class="btn" id="t-set" aria-label="설정">${ICON.gear}</button>
-    <button class="btn primary" id="t-export">내보내기</button>`;
+    <div class="bar-top">
+      <button class="ibtn" id="t-home" aria-label="홈 (조사 목록)">${ICON.home}</button>
+      <span class="pname" title="${esc(p.name)}">${esc(p.name)}</span>
+      <span class="sep"></span>
+      <span class="pager">
+        <button class="ibtn" id="t-prev" aria-label="이전 도면" ${S.cur <= 0 ? "disabled" : ""}>${ICON.prev}</button>
+        <button class="btn pg" id="t-pages">${pg ? `${S.cur + 1}/${S.pages.length} · ${esc(pg.name)}${pg && (S.proj.files.find((f) => f.fid === pg.fid) || {}).pageCount > 1 ? ` p.${pg.i + 1}` : ""}` : "도면 없음"}</button>
+        <button class="ibtn" id="t-next" aria-label="다음 도면" ${S.cur >= S.pages.length - 1 ? "disabled" : ""}>${ICON.next}</button>
+      </span>
+      <button class="btn floor-btn ${fl ? "" : "unset"}" id="t-floor">${fl ? esc(fl) : "층 지정"}</button>
+      <span class="grow"></span>
+      <span class="sync" id="sync"></span>
+      <button class="ibtn" id="t-set" aria-label="설정">${ICON.gear}</button>
+      <button class="btn primary share" id="t-export">${ICON.share}내보내기</button>
+    </div>
+    <div class="bar-tools">
+      <span class="bt-l">
+        <button class="ibtn" id="t-undo" aria-label="되돌리기" ${S.undo.length ? "" : "disabled"}>${ICON.undo}</button>
+        <button class="ibtn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
+      </span>
+      <span class="tools" role="group" aria-label="표시 도구">
+        ${["point", "arrow", "area", "pen", "eraser"].map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개" }[t] || KIND_LABEL[t]}</span></button>`).join("")}
+      </span>
+      <span class="bt-r">
+        <button class="ibtn lbl" id="t-fit" aria-label="화면 맞춤">${ICON.fit}<span>맞춤</span></button>
+        <button class="ibtn lbl ${fingerMode() === "draw" ? "on" : ""}" id="t-finger" aria-label="손가락 쓰임 바꾸기">${ICON.hand}<span>손가락 ${fingerMode() === "pan" ? "이동" : "그리기"}</span></button>
+      </span>
+    </div>`;
   $("#t-home").onclick = goHome;
   $("#t-prev").onclick = () => showPage(S.cur - 1);
   $("#t-next").onclick = () => showPage(S.cur + 1);
@@ -2300,6 +2327,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build cba7586fb1 -->
+<!-- build 96bed80eb3 -->
 </body>
 </html>
