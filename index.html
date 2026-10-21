@@ -127,8 +127,9 @@ button { cursor: pointer; }
 #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; box-shadow: 0 2px 14px rgba(0,0,0,.18); background: #fff; }
 #cv, #ov { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #vp .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
-#penbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 20px); padding: 6px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0,0,0,.18); touch-action: manipulation; }
-#penbar .pb-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#penbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; width: max-content; max-width: calc(100% - 20px); padding: 6px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0,0,0,.18); touch-action: manipulation; }
+#penbar .pb-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#penbar .pb-row > * { flex: 0 0 auto; }
 #penbar .swatch { width: 34px; height: 34px; }
 #penbar .sep { width: 1px; height: 26px; background: var(--line); margin: 0 4px; }
 .pb-w { width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; display: grid; place-items: center; }
@@ -244,7 +245,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "839cd32d38"; window.DY_BUILT = "2026-10-21 09:52";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "8c9e401c0d"; window.DY_BUILT = "2026-10-21 10:01";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2059,6 +2060,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 917d4e4d73 -->
+<!-- build 8c9e401c0d -->
 </body>
 </html>
