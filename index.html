@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "a328c4dc0c"; window.DY_BUILT = "2026-10-21 16:14";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "fa035523ae"; window.DY_BUILT = "2026-10-21 16:18";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1469,6 +1469,22 @@ vp.addEventListener("pointermove", (e) => {
     renderOverlay();
   }
 });
+// 손가락 두 번 톡톡: 맞춤이면 그 자리를 2.5배 확대, 확대 중이면 맞춤으로
+let lastTap = null;
+function doubleTap(x, y) {
+  const t = performance.now(), prev = lastTap;
+  lastTap = { t, x, y };
+  if (!prev || t - prev.t > 350 || Math.hypot(x - prev.x, y - prev.y) > 40) return false;
+  lastTap = null;
+  if (S.z > 1.02) fit();
+  else {
+    const r = vp.getBoundingClientRect(), z = 2.5;
+    const px = (x - r.left - S.tx) / (S.base * S.z), py = (y - r.top - S.ty) / (S.base * S.z);
+    S.z = z; S.tx = x - r.left - px * S.base * z; S.ty = y - r.top - py * S.base * z; clampView();
+  }
+  applyTransform(); renderOverlay(); scheduleRender();
+  return true;
+}
 // 옆으로 쓸기: 화면 폭 1/4 이상, 또는 빠르게(0.3초 안에 60px 이상) 거의 수평으로 움직였을 때만
 function swipePage(dx, dy, dt) {
   const w = vp.getBoundingClientRect().width;
@@ -1498,6 +1514,7 @@ function endPointer(e) {
   if (e.type === "pointercancel") { if (g.kind === "move" && g.moved) restoreMove(); draft = null; renderOverlay(); return; }
   if (g.kind === "pan") {
     if (g.moved) { if (g.swipe) swipePage(e.clientX - g.sx, e.clientY - g.sy, performance.now() - g.t0); return; }
+    if (e.pointerType === "touch" && doubleTap(e.clientX, e.clientY)) return;
     if (g.tapText) { if (S.sel) { S.sel = null; renderOverlay(); renderPanel(); } textModal(null, g.tapText); return; }
     if (S.sel) { S.sel = null; renderOverlay(); renderPanel(); }
     return;
@@ -2352,6 +2369,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build a328c4dc0c -->
+<!-- build fa035523ae -->
 </body>
 </html>
