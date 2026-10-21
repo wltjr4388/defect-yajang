@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3b57b92df2"; window.DY_BUILT = "2026-10-21 18:13";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c7fe292943"; window.DY_BUILT = "2026-10-21 18:18";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1267,7 +1267,7 @@ function labelSVG(m, col, u) {
   const t = String(m.no ?? "");
   const fs = u * (t.length >= 4 ? 0.62 : t.length >= 3 ? 0.8 : t.length === 2 ? 0.95 : 1.1);
   // 장비: 번호 원 오른쪽 아래에 한 항목 글자 (철·압·부)
-  const its = isEquip() ? EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key)).map((it) => it.short).join("") : "";
+  const its = isEquip() ? EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key)).map((it) => it.short).join("") + (m.type !== "arrow" && m.pos ? "·" + m.pos[0] : "") : "";
   const badge = its ? `<text x="${lx + r * 1.05}" y="${ly + r * 1.25}" font-size="${u * 0.85}" font-weight="700" fill="${col}" stroke="#fff" stroke-width="${u * 0.22}" paint-order="stroke" stroke-linejoin="round">${its}</text>` : "";
   // 숫자 높이(≈0.72em)의 반만큼 내려 기준선을 잡음: dominant-baseline="central"은 글자 칸 가운데라 아이패드에서 숫자가 치우쳐 보임 (PDF도 0.72로 맞춤)
   return `<g><circle cx="${lx}" cy="${ly}" r="${r}" fill="#fff" stroke="${col}" stroke-width="${sw}"/><text x="${lx}" y="${ly + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" fill="${col}" text-anchor="middle">${esc(t)}</text>${badge}</g>`;
@@ -1802,7 +1802,7 @@ function markSummary(m) {
 // 장비 입력창 맨 위 요약: 부재 · 항목(철근배근 #이미지)
 function equipSummary(m) {
   const parts = [], its = EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key));
-  if (m.member) parts.push(esc(m.member));
+  if (m.member) parts.push(esc(m.member) + (m.type !== "arrow" && m.pos ? ` ${esc(m.pos)}` : ""));
   const val = (k) => (k === "rebar" ? rbText(m) : k === "comp" ? compText(m) : k === "size" ? sizeText(m) : "");
   if (its.length) parts.push(its.map((it) => esc(it.name) + (val(it.key) ? ` ${esc(val(it.key))}` : "")).join(", "));
   return parts.length ? `<div class="msum">${parts.join(" · ")}</div>` : `<div class="msum empty">부재와 조사 항목을 고르세요</div>`;
@@ -1818,7 +1818,8 @@ function renderEquipPanel(P, m) {
       <span class="meta">${esc(floor || "층 미지정")} · ${m.type === "arrow" ? "화살표(수직)" : "점(수평)"}</span>
     </div>
     ${equipSummary(m)}
-    <div class="fld sec"><span class="lab">부재 <span style="font-weight:500;color:var(--muted)">· ${m.type === "arrow" ? "수직부재" : "수평부재"}</span></span>${m.type === "arrow" ? memberHTML(m.member, eqMemberKeep(m), EQUIP_VMEMBERS) : memberHTML(m.member, eqMemberKeep(m), EQUIP_HMEMBERS, 2)}</div>
+    <div class="fld sec"><span class="lab">부재 <span style="font-weight:500;color:var(--muted)">· ${m.type === "arrow" ? "수직부재" : "수평부재"}</span></span>${m.type === "arrow" ? memberHTML(m.member, eqMemberKeep(m), EQUIP_VMEMBERS) : memberHTML(m.member, eqMemberKeep(m), EQUIP_HMEMBERS, 2)}
+      ${m.type !== "arrow" && m.member ? `<div class="xrow" style="gap:8px"><span style="font-size:13px;color:var(--muted)">위치</span><span class="chips">${["단부", "중앙부"].map((v) => `<button class="chip" data-pos="${v}" aria-pressed="${m.pos === v}">${v}</button>`).join("")}</span></div>` : ""}</div>
     <div class="fld sec"><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
     ${rebar ? `<div class="fld sec"><span class="lab">철근배근 이미지번호</span>
       <div class="rbxyz">${RB_AXES.map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
@@ -1860,6 +1861,8 @@ function renderEquipPanel(P, m) {
     };
   }
   P.querySelectorAll("[data-ev]").forEach((inp) => (inp.oninput = () => upd(inp.dataset.ev, inp.value.trim())));
+  // 단부/중앙부: 고르지 않아도 됨, 다시 누르면 해제
+  P.querySelectorAll("[data-pos]").forEach((b) => (b.onclick = () => upd("pos", selMark().pos === b.dataset.pos ? "" : b.dataset.pos, true)));
   const grow = (t) => { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; };
   grow($("#f-memo"));
   $("#f-memo").oninput = (e) => { grow(e.target); upd("memo", e.target.value); };
@@ -2045,7 +2048,7 @@ function renderPageSummary(P) {
     </div>
     ${ms.length ? `<div class="list">${ms.map((m) => `
       <button class="lrow" data-sel="${m.id}"><span class="n">${esc(m.no)}</span>
-        ${isEquip() ? `<span class="d">${esc(m.member || "부재?")} · ${EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key)).map((it) => esc(it.name)).join(", ") || '<span class="miss">항목 없음</span>'}
+        ${isEquip() ? `<span class="d">${esc(m.member || "부재?")}${m.type !== "arrow" && m.pos ? " " + esc(m.pos) : ""} · ${EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key)).map((it) => esc(it.name)).join(", ") || '<span class="miss">항목 없음</span>'}
         <small>${[(m.items || []).includes("rebar") ? (rbText(m) ? "철근 " + esc(rbText(m)) : '<span class="miss">철근 이미지번호 없음</span>') : "", (m.items || []).includes("comp") ? (compText(m) ? "압축 " + esc(compText(m)) : '<span class="miss">압축강도 없음</span>') : "", (m.items || []).includes("size") ? (sizeText(m) ? "규격 " + esc(sizeText(m)) : '<span class="miss">규격 없음</span>') : ""].filter(Boolean).join(" · ")}${m.memo ? " · " + esc(m.memo) : ""}</small></span>` : `<span class="d">${esc(m.member || "부재?")} ${esc(typeLabel(m.dtype) || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>`}
       </button>`).join("")}</div>` : ""}
@@ -2346,9 +2349,9 @@ async function exportEquipXlsx() {
     // 항목별 칸: 철근배근 X·Y·Z / 압축강도 범위(42~45) / 부재규격 400×600
     const head = { rebar: ["X", "Y", "Z"], comp: ["범위"], size: ["규격(mm)"] }[k] || [];
     const vals = (m) => (k === "rebar" ? rbVals(m).map(nfc) : k === "comp" ? [compText(m)] : k === "size" ? [sizeText(m)] : []);
-    const rows = equipOrdered().filter((m) => lab.has(m.id)).map((m) => [lab.get(m.id), f3Floor(floorOf(m)).name, nfc(m.member || ""), ...vals(m), nfc(m.memo || ""), m.no]);
-    const ws = XLSX.utils.aoa_to_sheet([["번호", "층", "부재", ...head, "메모", "현장 위치번호"], ...rows]);
-    ws["!cols"] = [8, 10, 16, ...head.map(() => 11), 24, 12].map((w) => ({ wch: w }));
+    const rows = equipOrdered().filter((m) => lab.has(m.id)).map((m) => [lab.get(m.id), f3Floor(floorOf(m)).name, nfc(m.member || ""), m.type !== "arrow" ? m.pos || "" : "", ...vals(m), nfc(m.memo || ""), m.no]);
+    const ws = XLSX.utils.aoa_to_sheet([["번호", "층", "부재", "단부/중앙부", ...head, "메모", "현장 위치번호"], ...rows]);
+    ws["!cols"] = [8, 10, 16, 10, ...head.map(() => 11), 24, 12].map((w) => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, it.name);
   }
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array", bookSST: true });
@@ -2632,6 +2635,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 3b57b92df2 -->
+<!-- build c7fe292943 -->
 </body>
 </html>
