@@ -95,6 +95,14 @@ button { cursor: pointer; }
 .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--surface-2); color: var(--muted); margin-left: 6px; vertical-align: 2px; letter-spacing: .03em; }
 .empty { padding: 22px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); line-height: 1.6; }
 .checklist { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; line-height: 1.7; }
+/* 내보내기: 파일마다 칸 하나, 그 파일의 옵션은 칸 안에 */
+.xcards { display: grid; gap: 10px; }
+.xcard { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 12px 14px; display: grid; gap: 8px; }
+.xcard h4 { margin: 0; font-size: 16px; }
+.xcard .xd { margin: 0; color: var(--muted); font-size: 13px; }
+.xcard .chk { min-height: 36px; padding: 0; }
+.xcard .xrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.xcard .xgo { justify-self: end; }
 .checklist ol { margin: 6px 0 0; padding-left: 20px; }
 .checklist b { color: var(--ink); }
 
@@ -271,7 +279,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "0471bfb9d7"; window.DY_BUILT = "2026-10-21 14:44";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "4fde53b088"; window.DY_BUILT = "2026-10-21 14:55";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1850,12 +1858,24 @@ function exportModal() {
   openModal(`
     <h3>내보내기</h3>
     <p class="sub">${esc(S.proj.name)} · 결함 ${n}개</p>
-    <div class="menu">
-      <button class="btn" id="x-pdf">표시된 야장 PDF<small>도면 + 번호 표시</small></button>
-      <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
-      <button class="btn" id="x-xlsx">외관조사 결과표 엑셀<small>번호·층·부재·결함유형·규격·사진번호</small></button>
-      <div class="chk">층 순서 <span class="chips">${[["top", "최상층부터"], ["bottom", "최하층부터"]].map(([v, nm]) => `<button class="chip" data-ford="${v}" aria-pressed="${(S.proj.prefs.floorOrder || "top") === v}">${nm}</button>`).join("")}</span></div>
-      <button class="btn" id="x-json">백업 파일 저장<small>하루 끝에 한 번</small></button>
+    <div class="xcards">
+      <section class="xcard">
+        <h4>야장 PDF</h4>
+        <p class="xd">도면 위에 결함 번호를 표시한 PDF</p>
+        <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 같이 넣기 <span style="color:var(--muted);font-size:13px">(${liveNotes().length}개)</span></label>
+        <button class="btn primary xgo" id="x-pdf">PDF 만들기</button>
+      </section>
+      <section class="xcard">
+        <h4>결과표 엑셀</h4>
+        <p class="xd">번호·층·부재·결함유형·규격·사진번호</p>
+        <div class="xrow">층 순서 <span class="chips">${[["top", "지붕 → 지하"], ["bottom", "지하 → 지붕"]].map(([v, nm]) => `<button class="chip" data-ford="${v}" aria-pressed="${(S.proj.prefs.floorOrder || "top") === v}">${nm}</button>`).join("")}</span></div>
+        <button class="btn primary xgo" id="x-xlsx">엑셀 만들기</button>
+      </section>
+      <section class="xcard">
+        <h4>백업 파일</h4>
+        <p class="xd">조사 전체를 파일 하나로 · 하루 끝에 한 번 저장</p>
+        <button class="btn xgo" id="x-json">백업 저장</button>
+      </section>
     </div>
     <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
   $("#x-notes").onchange = (e) => { S.proj.prefs.printNotes = e.target.checked; touch(null); };
@@ -2241,6 +2261,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 0471bfb9d7 -->
+<!-- build 4fde53b088 -->
 </body>
 </html>
