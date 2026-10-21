@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1f4f98a5b8"; window.DY_BUILT = "2026-10-21 16:06";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "d56919de24"; window.DY_BUILT = "2026-10-21 16:09";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1370,7 +1370,7 @@ vp.addEventListener("pointerdown", (e) => {
   const fingerOnly = fingerMode() === "pan" && e.pointerType === "touch"; // 손가락 이동 모드면 손가락은 이동·확대만
   // swipe: 도면 전체가 보이는 상태(맞춤 배율)에서 시작한 이동이면, 옆으로 쓸었을 때 이전/다음 도면으로 넘김
   // (확대 상태에서 끝까지 가서 한 번 더 끌면 넘기는 건 나중에 — 사용자 결정 2026-10-21)
-  const panG = (extra) => ({ kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false, swipe: S.z <= 1.02 && S.pages.length > 1, t0: performance.now(), ...extra });
+  const panG = (extra) => ({ kind: "pan", sx: e.clientX, sy: e.clientY, tx0: S.tx, ty0: S.ty, moved: false, swipe: S.z <= 1.02, t0: performance.now(), ...extra });
   if (S.tool === "eraser" && !fingerOnly) {
     gest = { kind: "erase", last: p, snap: snapshot(), changed: false };
     draft = { type: "eraser", at: p };
@@ -1415,7 +1415,7 @@ vp.addEventListener("pointermove", (e) => {
   if (gest.kind === "pan") {
     const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) gest.moved = true;
-    S.tx = gest.tx0 + dx; S.ty = gest.ty0 + dy; applyTransform(); return;
+    S.tx = gest.tx0 + dx; S.ty = gest.swipe ? gest.ty0 : gest.ty0 + dy; applyTransform(); return;   // 맞춤 배율에선 위아래 고정 (옆으로만 따라옴)
   }
   const p = toPage(e.clientX, e.clientY);
   if (gest.kind === "erase") {
@@ -1462,10 +1462,12 @@ vp.addEventListener("pointermove", (e) => {
 // 옆으로 쓸기: 화면 폭 1/4 이상, 또는 빠르게(0.3초 안에 60px 이상) 거의 수평으로 움직였을 때만
 function swipePage(dx, dy, dt) {
   const w = vp.getBoundingClientRect().width;
-  if (Math.abs(dx) < 2 * Math.abs(dy)) return;
-  if (!(Math.abs(dx) > w / 4 || (Math.abs(dx) > 60 && dt < 300))) return;
+  const back = () => { fit(); applyTransform(); };   // 안 넘기면 제자리로
+  if (Math.abs(dx) < 2 * Math.abs(dy)) return back();
+  if (!(Math.abs(dx) > w / 4 || (Math.abs(dx) > 60 && dt < 300))) return back();
   const to = S.cur + (dx < 0 ? 1 : -1);
-  if (to < 0 || to >= S.pages.length) { fit(); applyTransform(); toast(to < 0 ? "첫 도면입니다" : "마지막 도면입니다"); return; }
+  if (S.pages.length < 2) return back();
+  if (to < 0 || to >= S.pages.length) { back(); toast(to < 0 ? "첫 도면입니다" : "마지막 도면입니다"); return; }
   showPage(to).then(() => { const pg = S.pages[S.cur]; toast(`${S.cur + 1}/${S.pages.length} · ${pg.name}`); });
 }
 function restoreMove() { const it = findItem(gest.id); if (it) setGeom(it, gest.orig); }
@@ -2340,6 +2342,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 1f4f98a5b8 -->
+<!-- build d56919de24 -->
 </body>
 </html>
