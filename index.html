@@ -191,7 +191,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .fld.sel-top > .lab { grid-column: 1; grid-row: 1; align-self: center; }
 .fld.sel-top > .sel-line { grid-column: 2; grid-row: 1; }
 #panel .chip, #panel .dtabs button { min-height: 36px; }
-#panel:has(#f-done) { gap: 8px; }
+#panel:has(#f-done) { gap: 6px; }
 .fld.inl { grid-template-columns: 52px minmax(0, 1fr); align-items: center; column-gap: 8px; }
 #panel:has(#f-done) { padding-bottom: 12px; }
 textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
@@ -224,7 +224,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
 .ph .meta { font-size: 13px; font-weight: 600; color: var(--muted); align-self: center; white-space: nowrap; }
 .msum { font-size: 14px; line-height: 1.4; color: var(--ink); padding: 6px 10px; border-radius: 8px; background: var(--surface-2); }
 .msum.empty { color: var(--muted); }
-#panel .sec { border-top: 1px solid var(--line); padding-top: 8px; }
+#panel .sec { border: 1px solid var(--line); border-radius: 12px; padding: 5px 10px 7px; }
 #panel .sec.fld { gap: 4px; }
 #panel .sec .lab { font-size: 14px; color: var(--ink); letter-spacing: 0; }
 .pfoot .btn.del { flex: none; padding: 0 14px; }
@@ -287,7 +287,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "66d2a6e028"; window.DY_BUILT = "2026-10-21 15:02";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "402ac4a45d"; window.DY_BUILT = "2026-10-21 15:10";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2275,6 +2275,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 66d2a6e028 -->
+<!-- build 402ac4a45d -->
 </body>
 </html>
