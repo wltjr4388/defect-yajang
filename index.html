@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "ed4354fb5d"; window.DY_BUILT = "2026-10-21 18:05";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "eec4a72315"; window.DY_BUILT = "2026-10-21 18:07";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -362,7 +362,7 @@ const SINGLE_GROUP = "균열";
 const FLOORS = ["지하3층", "지하2층", "지하1층", "1층", "2층", "3층", "4층", "5층", "6층", "7층", "8층", "9층", "10층", "11층", "12층", "옥탑층", "지붕층"];
 const KIND_LABEL = { point: "점", arrow: "화살표", area: "영역" };
 const NOTE_LABEL = { text: "글씨 메모", pen: "펜 메모" };
-const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8", equip: "#0a7f8c" };
+const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8", equip: "#0a7f8c", eqH: "#1d5bd8", eqV: "#d6332a" };   // 장비: 점(수평부재) 파랑, 화살표(수직부재) 빨강 — 현장 야장 색과 같게
 /* ---------- 장비조사 (회사용 기능: 판매용 빌드에선 FEATURE_EQUIP = false 로 통째로 빠짐) ----------
    조사 위치 하나에 번호 원 하나, 현장 번호는 결함처럼 층마다 1번부터. 위치마다 조사 항목을 체크하고,
    내보낼 때 항목별로 건물 전체를 이어서 다시 번호를 붙임 (철근배근 R-1…, 압축강도 S-1…, 부재규격 D-1…) */
@@ -1367,7 +1367,7 @@ function renderOverlay() {
     out += noteSVG(n, COL.note, u);
     if (n.id === S.sel) { const b = noteBox(n, u), pd = u * 0.4; out += `<rect x="${b.x - pd}" y="${b.y - pd}" width="${b.w + pd * 2}" height="${b.h + pd * 2}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
   }
-  const col = (m) => (m.id === S.sel ? COL.sel : isEquip() ? COL.equip : COL.mark);
+  const col = (m) => (m.id === S.sel ? COL.sel : isEquip() ? (m.type === "arrow" ? COL.eqV : COL.eqH) : COL.mark);
   for (const m of ms) out += geomSVG(m, col(m), u);
   for (const m of ms) out += labelSVG(m, col(m), u);
   const sm = selMark(); if (sm && sm.pageKey === k) for (const h of handlesOf(sm)) out += handleSVG(h.at);
@@ -1814,7 +1814,7 @@ function renderEquipPanel(P, m) {
   const own = vals.filter((v) => /\d/.test(v)).pop(), empty = vals.slice(0, nz).filter((v) => !v).length, nxt = own ? bumpPhoto(own, 1) : rbNext(m.id);
   P.innerHTML = `
     <div class="ph">
-      <span class="big"><button class="no-edit" id="f-no">위치 <span class="num" style="color:${COL.equip}">${esc(m.no)}</span><small>번호 바꾸기</small></button></span>
+      <span class="big"><button class="no-edit" id="f-no">위치 <span class="num" style="color:${m.type === "arrow" ? COL.eqV : COL.eqH}">${esc(m.no)}</span><small>번호 바꾸기</small></button></span>
       <span class="meta">${esc(floor || "층 미지정")} · ${m.type === "arrow" ? "화살표(수직)" : "점(수평)"}</span>
     </div>
     ${equipSummary(m)}
@@ -2361,7 +2361,8 @@ async function exportPdf() {
   const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
   const out = await PDFDocument.create();
   const font = await out.embedFont(StandardFonts.HelveticaBold);
-  const red = isEquip() ? rgb(0.04, 0.5, 0.55) : rgb(0.84, 0.2, 0.165), white = rgb(1, 1, 1);
+  const RED = rgb(0.84, 0.2, 0.165), BLUE = rgb(0.11, 0.36, 0.85), white = rgb(1, 1, 1);
+  let red = RED;   // 표시마다 바뀜: 장비 점(수평부재)은 파랑
   // 장비: 고른 항목을 한 위치만, 번호는 항목 번호(R-1…)로
   const eqItem = isEquip() ? S.proj.prefs.pdfItem || "all" : null, eqLab = eqItem && eqItem !== "all" ? equipLabels(eqItem) : null;
   const pick = (key) => (eqLab ? marksOn(key).filter((m) => eqLab.has(m.id)).map((m) => ({ ...m, no: eqLab.get(m.id) })) : marksOn(key));
@@ -2444,6 +2445,7 @@ async function exportPdf() {
     const u = unitFor(W, H), r = u * 1.05, sw = u * 0.17;
     const P = (q) => conv(q[0], q[1]);
     for (const m of ms) {
+      red = isEquip() && m.type !== "arrow" ? BLUE : RED;
       const lp = labelPos(m, u);
       if (m.type === "point") {
         const [x, y] = m.pts[0];
@@ -2465,6 +2467,7 @@ async function exportPdf() {
       }
     }
     for (const m of ms) {
+      red = isEquip() && m.type !== "arrow" ? BLUE : RED;
       const lp = labelPos(m, u);
       const c = P(lp);
       pg.drawCircle({ x: c[0], y: c[1], size: r, color: white, borderColor: red, borderWidth: sw });
@@ -2619,6 +2622,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build ed4354fb5d -->
+<!-- build eec4a72315 -->
 </body>
 </html>
