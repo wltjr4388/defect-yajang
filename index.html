@@ -255,7 +255,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "eae2251c9b"; window.DY_BUILT = "2026-10-21 11:08";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1904574513"; window.DY_BUILT = "2026-10-21 11:12";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -276,8 +276,8 @@ const OFFLINE_APP = !!window.DY_OFFLINE; // 홈 화면 앱(GitHub Pages) 빌드�
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = window.DY_WORKER_SRC || "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "바닥 슬래브", "계단 슬래브"];
-// 부재 여러 개 고르면 "+"로 합침: 조적벽체 → 슬래브 → 보 → 기둥 → 벽체 순, 합칠 때 "천장 보"는 "보"로 줄임 (예: 조적벽체+보+기둥)
-const MEMBER_ORDER = ["조적벽체", "천장 슬래브", "바닥 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체"];
+// 부재 여러 개 고르면 "+"로 합침: 슬래브 → 보 → 기둥 → 벽체 → 조적벽체 순, 합칠 때 "천장 보"는 "보"로 줄임 (예: 보+기둥+조적벽체)
+const MEMBER_ORDER = ["천장 슬래브", "바닥 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체", "조적벽체"];
 // 직접 입력한 부재·결함종류는 최근 5개까지 버튼으로 남김 (이 태블릿에 저장, 모든 조사에 같이 씀)
 function recentCustom(kind) { try { const a = JSON.parse(localStorage.getItem("dy-custom-" + kind)); return Array.isArray(a) ? a.filter((x) => typeof x === "string" && x).slice(-5) : []; } catch (e) { return []; } }
 function addCustom(kind, v) { const a = recentCustom(kind).filter((x) => x !== v); a.push(v); try { localStorage.setItem("dy-custom-" + kind, JSON.stringify(a.slice(-5))); } catch (e) {} }
@@ -431,7 +431,9 @@ function members() {
   let list = pr.members || DEFAULT_MEMBERS;
   // 바닥 슬래브는 나중에 추가된 기본값: 예전에 설정 저장한 조사에도 넣어줌 (설정에서 직접 지운 뒤로는 안 넣음)
   if (pr.members && !pr.membersV2 && !list.includes("바닥 슬래브")) { const i = list.indexOf("천장 슬래브"); list = [...list]; list.splice(i >= 0 ? i + 1 : list.length, 0, "바닥 슬래브"); }
-  return list.filter((x) => !x.includes("+"));
+  list = list.filter((x) => !x.includes("+"));
+  // 선택란 버튼은 조적벽체가 맨 앞
+  return list.includes("조적벽체") ? ["조적벽체", ...list.filter((x) => x !== "조적벽체")] : list;
 }
 const shortMember = (x) => x.replace(/^천장 /, "");
 function splitMember(s) {
@@ -2159,6 +2161,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build eae2251c9b -->
+<!-- build 1904574513 -->
 </body>
 </html>
