@@ -174,6 +174,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .dtabs button i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 4px; vertical-align: 2px; }
 .sel-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 28px; font-size: 13px; color: var(--muted); }
 .sel-line .tagx { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--ink); font-size: 13px; font-weight: 500; border: 0; }
+.sel-line .tagc { margin: 0 -2px 0 -4px; color: var(--muted); }
 .sel-line .tagx span { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
 .cur-photo { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .cur-photo .inp { background: var(--surface); }
@@ -255,7 +256,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "95fe976bc8"; window.DY_BUILT = "2026-10-21 11:43";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "70ff6cfc56"; window.DY_BUILT = "2026-10-21 11:49";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1562,6 +1563,11 @@ function memberHTML(val) {
   const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
   return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
 }
+// 선택 표시도 저장되는 글자처럼: "미장 박리, 박락" (× 누르면 그 항목만 빠짐)
+function selTags(sel) {
+  const full = splitTypes(joinTypes(sel)), short = joinTypes(sel).split(", ");
+  return full.map((v, i) => `<button class="tagx" data-tdel="${esc(v)}" aria-label="${esc(v)} 빼기">${esc(short[i] || v)}<span>×</span></button>`).join(`<span class="tagc">,</span>`);
+}
 function dtypeHTML(m) {
   const cust = recentCustom("dtype").filter((x) => !knownType(x));
   const gs = [...groups(), ...(cust.length ? [{ name: "직접", items: cust }] : [])], sel = splitTypes(m.dtype);
@@ -1570,7 +1576,7 @@ function dtypeHTML(m) {
   return `
     <div class="dtabs" role="tablist">${gs.map((x) => `<button role="tab" data-tab="${esc(x.name)}" aria-selected="${x.name === S.dtab}">${esc(x.name)}${x.items.some((it) => typeOn(sel, it)) ? "<i></i>" : ""}</button>`).join("")}</div>
     <div class="chips" data-dt>${g.items.map((v) => `<button class="chip" data-t="${esc(v)}" aria-pressed="${typeOn(sel, v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-tadd>+ 직접</button></div>
-    <div class="sel-line">${sel.length ? `선택:` + sel.map((v) => `<button class="tagx" data-tdel="${esc(v)}" aria-label="${esc(v)} 빼기">${esc(v)}<span>×</span></button>`).join("") : "선택 없음 · 여러 개 고를 수 있습니다"}</div>`;
+    <div class="sel-line">${sel.length ? `선택:` + selTags(sel) : "선택 없음 · 여러 개 고를 수 있습니다"}</div>`;
 }
 function renderPanel() {
   const P = $("#panel");
@@ -2174,6 +2180,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 95fe976bc8 -->
+<!-- build 70ff6cfc56 -->
 </body>
 </html>
