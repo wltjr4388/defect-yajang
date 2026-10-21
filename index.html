@@ -121,6 +121,8 @@ button { cursor: pointer; }
 .bar-tools { display: grid; grid-template-columns: 1fr auto 1fr; padding-block: 2px 4px; border-top: 1px solid var(--line); }
 .bar-tools .bt-l, .bar-tools .bt-r { display: flex; gap: 4px; align-items: center; }
 .bar-tools .bt-r { justify-content: flex-end; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.pair .x { color: var(--muted); }
 .rbxyz { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .rbax { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px; }
 .rbax b { font-size: 14px; color: var(--muted); }
@@ -321,7 +323,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "8db14afcce"; window.DY_BUILT = "2026-10-21 17:46";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "15daef60e5"; window.DY_BUILT = "2026-10-21 17:51";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -383,6 +385,9 @@ function rbNext(exceptId) {
   const last = [...live()].filter((x) => x.id !== exceptId).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((x) => rbVals(x).filter((v) => /\d/.test(v)).pop()).find(Boolean);
   return last ? bumpPhoto(last, 1) : "";
 }
+// 압축강도는 범위(42~45), 부재규격은 두 치수(400×600)
+function compText(m) { return m.cmin || m.cmax ? `${m.cmin || "?"}~${m.cmax || "?"}` : ""; }
+function sizeText(m) { return m.sw || m.sh ? `${m.sw || "?"}×${m.sh || "?"}` : ""; }
 function isEquip(p) { p = p === undefined ? S.proj : p; return FEATURE_EQUIP && !!p && p.kind === "equip"; }
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
 const PEN_COLORS = [["#d6332a", "빨강"], ["#1d5bd8", "파랑"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#16202b", "검정"]];
@@ -1791,7 +1796,8 @@ function markSummary(m) {
 function equipSummary(m) {
   const parts = [], its = EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key));
   if (m.member) parts.push(esc(m.member));
-  if (its.length) parts.push(its.map((it) => esc(it.name) + (it.key === "rebar" && rbText(m) ? ` ${esc(rbText(m))}` : "")).join(", "));
+  const val = (k) => (k === "rebar" ? rbText(m) : k === "comp" ? compText(m) : k === "size" ? sizeText(m) : "");
+  if (its.length) parts.push(its.map((it) => esc(it.name) + (val(it.key) ? ` ${esc(val(it.key))}` : "")).join(", "));
   return parts.length ? `<div class="msum">${parts.join(" · ")}</div>` : `<div class="msum empty">부재와 조사 항목을 고르세요</div>`;
 }
 function renderEquipPanel(P, m) {
@@ -1811,6 +1817,10 @@ function renderEquipPanel(P, m) {
       <div class="rbxyz">${RB_AXES.map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
       ${empty && nxt ? `<button class="btn sugg rbfill" id="f-rbfill">빈 칸 이어서 채우기 · ${esc(nxt)}부터</button>` : ""}
     </div>` : ""}
+    ${its.includes("comp") ? `<div class="fld sec"><span class="lab">압축강도 범위</span>
+      <div class="pair"><input class="inp num" data-ev="cmin" inputmode="numeric" autocomplete="off" value="${esc(m.cmin || "")}" placeholder="최소"><span class="x">~</span><input class="inp num" data-ev="cmax" inputmode="numeric" autocomplete="off" value="${esc(m.cmax || "")}" placeholder="최대"></div></div>` : ""}
+    ${its.includes("size") ? `<div class="fld sec"><span class="lab">부재규격 (mm)</span>
+      <div class="pair"><input class="inp num" data-ev="sw" inputmode="numeric" autocomplete="off" value="${esc(m.sw || "")}" placeholder="예: 400"><span class="x">×</span><input class="inp num" data-ev="sh" inputmode="numeric" autocomplete="off" value="${esc(m.sh || "")}" placeholder="예: 600"></div></div>` : ""}
     <div class="fld inl sec"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
     <div class="pfoot"><button class="btn danger del" id="f-del">삭제</button><button class="btn primary" id="f-done">완료</button></div>`;
   const upd = (field, v, rerender) => {
@@ -1841,6 +1851,7 @@ function renderEquipPanel(P, m) {
       upd("rx", mm.rx || "", true);
     };
   }
+  P.querySelectorAll("[data-ev]").forEach((inp) => (inp.oninput = () => upd(inp.dataset.ev, inp.value.trim())));
   const grow = (t) => { t.style.height = "auto"; t.style.height = t.scrollHeight + 2 + "px"; };
   grow($("#f-memo"));
   $("#f-memo").oninput = (e) => { grow(e.target); upd("memo", e.target.value); };
@@ -2027,7 +2038,7 @@ function renderPageSummary(P) {
     ${ms.length ? `<div class="list">${ms.map((m) => `
       <button class="lrow" data-sel="${m.id}"><span class="n">${esc(m.no)}</span>
         ${isEquip() ? `<span class="d">${esc(m.member || "부재?")} · ${EQUIP_ITEMS.filter((it) => (m.items || []).includes(it.key)).map((it) => esc(it.name)).join(", ") || '<span class="miss">항목 없음</span>'}
-        <small>${(m.items || []).includes("rebar") ? (rbText(m) ? "철근 " + esc(rbText(m)) : '<span class="miss">철근 이미지번호 없음</span>') : ""}${m.memo ? " · " + esc(m.memo) : ""}</small></span>` : `<span class="d">${esc(m.member || "부재?")} ${esc(typeLabel(m.dtype) || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
+        <small>${[(m.items || []).includes("rebar") ? (rbText(m) ? "철근 " + esc(rbText(m)) : '<span class="miss">철근 이미지번호 없음</span>') : "", (m.items || []).includes("comp") ? (compText(m) ? "압축 " + esc(compText(m)) : '<span class="miss">압축강도 없음</span>') : "", (m.items || []).includes("size") ? (sizeText(m) ? "규격 " + esc(sizeText(m)) : '<span class="miss">규격 없음</span>') : ""].filter(Boolean).join(" · ")}${m.memo ? " · " + esc(m.memo) : ""}</small></span>` : `<span class="d">${esc(m.member || "부재?")} ${esc(typeLabel(m.dtype) || "종류?")} ${size(m)}${(parseInt(m.count, 10) || 1) > 1 ? ` · ${esc(m.count)}개` : ""}
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>`}
       </button>`).join("")}</div>` : ""}
     <p class="help">
@@ -2108,6 +2119,8 @@ function missingOf(m) {
     if (!m.member) b.push("부재");
     if (!its.length) b.push("조사 항목");
     if (its.includes("rebar") && !rbVals(m)[0]) b.push("철근 이미지번호(X)");
+    if (its.includes("comp") && !(m.cmin && m.cmax)) b.push("압축강도 범위");
+    if (its.includes("size") && !(m.sw && m.sh)) b.push("부재규격");
     return b;
   }
   const a = [];
@@ -2321,10 +2334,13 @@ async function exportEquipXlsx() {
   if (!window.XLSX) throw new Error("엑셀 기능을 불러오지 못했습니다 (인터넷 확인)");
   const wb = XLSX.utils.book_new();
   for (const it of EQUIP_ITEMS) {
-    const lab = equipLabels(it.key), rebar = it.key === "rebar";
-    const rows = equipOrdered().filter((m) => lab.has(m.id)).map((m) => [lab.get(m.id), f3Floor(floorOf(m)).name, nfc(m.member || ""), ...(rebar ? rbVals(m).map(nfc) : []), nfc(m.memo || ""), m.no]);
-    const ws = XLSX.utils.aoa_to_sheet([["번호", "층", "부재", ...(rebar ? ["X", "Y", "Z"] : []), "메모", "현장 위치번호"], ...rows]);
-    ws["!cols"] = [8, 10, 16, ...(rebar ? [10, 10, 10] : []), 24, 12].map((w) => ({ wch: w }));
+    const lab = equipLabels(it.key), k = it.key;
+    // 항목별 칸: 철근배근 X·Y·Z / 압축강도 범위(42~45) / 부재규격 400×600
+    const head = { rebar: ["X", "Y", "Z"], comp: ["범위"], size: ["규격(mm)"] }[k] || [];
+    const vals = (m) => (k === "rebar" ? rbVals(m).map(nfc) : k === "comp" ? [compText(m)] : k === "size" ? [sizeText(m)] : []);
+    const rows = equipOrdered().filter((m) => lab.has(m.id)).map((m) => [lab.get(m.id), f3Floor(floorOf(m)).name, nfc(m.member || ""), ...vals(m), nfc(m.memo || ""), m.no]);
+    const ws = XLSX.utils.aoa_to_sheet([["번호", "층", "부재", ...head, "메모", "현장 위치번호"], ...rows]);
+    ws["!cols"] = [8, 10, 16, ...head.map(() => 11), 24, 12].map((w) => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, it.name);
   }
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array", bookSST: true });
@@ -2595,6 +2611,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 8db14afcce -->
+<!-- build 15daef60e5 -->
 </body>
 </html>
