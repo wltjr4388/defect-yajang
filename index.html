@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "fa035523ae"; window.DY_BUILT = "2026-10-21 16:18";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "a944a3226b"; window.DY_BUILT = "2026-10-21 16:21";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1368,6 +1368,7 @@ function selectItem(id) { if (S.sel !== id) { S.sel = id; renderOverlay(); rende
 ["pointerdown", "pointermove", "pointerup", "wheel"].forEach((ev) => $("#penbar").addEventListener(ev, (e) => e.stopPropagation()));
 vp.addEventListener("pointerdown", (e) => {
   if (!S.pi) return;
+  viewAnim++;   // 확대·축소 움직이는 중에 손대면 거기서 멈춤
   try { vp.setPointerCapture(e.pointerId); } catch (_) {}
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
   if (e.pointerType === "pen" && fingerMode() !== "pan") { setFingerMode("pan"); renderBar(); }
@@ -1476,19 +1477,35 @@ function doubleTap(x, y) {
   lastTap = { t, x, y };
   if (!prev || t - prev.t > 350 || Math.hypot(x - prev.x, y - prev.y) > 40) return false;
   lastTap = null;
+  const from = { z: S.z, tx: S.tx, ty: S.ty };
   if (S.z > 1.02) fit();
   else {
     const r = vp.getBoundingClientRect(), z = 2.5;
     const px = (x - r.left - S.tx) / (S.base * S.z), py = (y - r.top - S.ty) / (S.base * S.z);
     S.z = z; S.tx = x - r.left - px * S.base * z; S.ty = y - r.top - py * S.base * z; clampView();
   }
-  applyTransform(); renderOverlay(); scheduleRender();
+  const to = { z: S.z, tx: S.tx, ty: S.ty };
+  Object.assign(S, from); animateView(to);
   return true;
+}
+// 화면 배율·위치를 부드럽게 바꿈 (0.25초, 끝으로 갈수록 느려짐). 도중엔 화면 이동만, 끝나고 도면을 선명하게 다시 그림
+let viewAnim = 0;
+function animateView(to, ms = 250) {
+  const from = { z: S.z, tx: S.tx, ty: S.ty }, t0 = performance.now(), id = ++viewAnim;
+  // 배율은 곱으로 보간해야 확대·축소 속도가 고르게 느껴짐. 위치는 고정점이 따라가도록 같은 비율로
+  const step = (now) => {
+    if (id !== viewAnim) return;
+    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    S.z = from.z * Math.pow(to.z / from.z, e); S.tx = from.tx + (to.tx - from.tx) * e; S.ty = from.ty + (to.ty - from.ty) * e;
+    applyTransform();
+    if (k < 1) requestAnimationFrame(step); else { renderOverlay(); scheduleRender(); }
+  };
+  requestAnimationFrame(step);
 }
 // 옆으로 쓸기: 화면 폭 1/4 이상, 또는 빠르게(0.3초 안에 60px 이상) 거의 수평으로 움직였을 때만
 function swipePage(dx, dy, dt) {
   const w = vp.getBoundingClientRect().width;
-  const back = () => { fit(); applyTransform(); };   // 안 넘기면 제자리로
+  const back = () => { const from = { z: S.z, tx: S.tx, ty: S.ty }; fit(); const to = { z: S.z, tx: S.tx, ty: S.ty }; Object.assign(S, from); animateView(to, 200); };   // 안 넘기면 제자리로 (부드럽게)
   if (Math.abs(dx) < 2 * Math.abs(dy)) return back();
   if (!(Math.abs(dx) > w / 4 || (Math.abs(dx) > 60 && dt < 300))) return back();
   const to = S.cur + (dx < 0 ? 1 : -1);
@@ -2369,6 +2386,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build fa035523ae -->
+<!-- build a944a3226b -->
 </body>
 </html>
