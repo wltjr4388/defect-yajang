@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "ffef92231d"; window.DY_BUILT = "2026-10-21 14:03";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c85e12fadd"; window.DY_BUILT = "2026-10-21 14:08";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1975,11 +1975,10 @@ async function exportXlsx() {
   // 빈 값은 칸을 아예 안 만듦 (빈 글자가 들어가면 양식 물량 수식이 #VALUE!)
   const ws = {}, put = (ref, v) => (v.f || (v.v !== "" && v.v != null) ? (ws[ref] = v) : v);
   const str = (v) => ({ t: "s", v: nfc(v) }), num = (v) => { const n = asNum(v); return typeof n === "number" ? { t: "n", v: n } : str(n); };
-  const note = (cell, t) => { cell.c = [{ a: "결함 야장", t }]; cell.c.hidden = true; return cell; };
   put("B3", str(`『${S.proj.name}』 외관조사 결과표`));
-  [["B4", "번호"], ["C4", "위치"], ["D4", "층"], ["E4", "부재명"], ["F4", "결함유형"], ["G4", "결함규격"], ["L4", "발생원인"], ["M4", "보수방안"], ["N4", "우선순위"], ["O4", "사진\n번호"], ["P5", "사진번호"],
-    ["G5", "폭(㎜)/\n너비(m)"], ["H5", "길이"], ["I5", "단위"], ["J5", "개소"], ["K5", "물량"], ["Q4", "메모(참고)"]].forEach(([r, v]) => put(r, str(v)));
-  const merges = ["B3:P3", "B4:B5", "C4:C5", "D4:D5", "E4:E5", "F4:F5", "G4:K4", "L4:L5", "M4:M5", "N4:N5", "O4:O5", "Q4:Q5"].map((x) => XLSX.utils.decode_range(x));
+  [["B4", "번호"], ["C4", "위치"], ["D4", "층"], ["E4", "부재명"], ["F4", "결함유형"], ["G4", "결함규격"], ["L4", "발생원인"], ["M4", "보수방안"], ["N4", "우선순위"], ["O4", "사진 번호"], ["P5", "사진번호"],
+    ["G5", "폭(㎜)/너비(m)"], ["H5", "길이"], ["I5", "단위"], ["J5", "개소"], ["K5", "물량"], ["Q4", "메모(참고)"]].forEach(([r, v]) => put(r, str(v)));
+  // 셀 병합·셀 메모·줄바꿈은 안 씀: 아이패드 미리보기가 병합 제목 행을 화면 가득 늘려 표가 안 보였음
   let r = 6;
   marks.forEach((m, i) => {
     const fl = f3Floor(floorOf(m));
@@ -1994,21 +1993,24 @@ async function exportXlsx() {
     const unit = !each.length && !m.w && !m.l ? "" : linear ? "m" : "㎡";
     put(`B${r}`, str(fl.code && m.no ? `${fl.code}-${m.no}` : m.no || ""));
     put(`D${r}`, str(fl.name)); put(`E${r}`, str(member));
-    const fc = put(`F${r}`, str(defect));
-    const odd = each.filter((t) => !F3_TYPES.includes(t) && !crackDirs(t));
-    if (odd.length) note(fc, `양식 예시에 없는 문구: ${odd.join(", ")}`);
-    const gc = put(`G${r}`, num(m.w)); put(`H${r}`, num(m.l)); put(`I${r}`, str(unit)); put(`J${r}`, num(m.count || 1));
-    if (unit === "㎡" && widthUnit(m) === "mm" && m.w) note(gc, "앱에서 폭을 mm로 입력함 → 너비(m) 확인");
-    put(`K${r}`, { t: "s", v: "", f: `IF(I${r}="m",H${r}*J${r}&"m",IF(I${r}="㎡",G${r}*H${r}*J${r}&"㎡",IF(I${r}="EA",J${r}&"EA","-")))` });
+    put(`F${r}`, str(defect));
+    const odd = each.filter((t) => !F3_TYPES.includes(t) && !crackDirs(t)), chk = [];
+    if (odd.length) chk.push(`양식 예시에 없는 문구: ${odd.join(", ")}`);
+    put(`G${r}`, num(m.w)); put(`H${r}`, num(m.l)); put(`I${r}`, str(unit)); put(`J${r}`, num(m.count || 1));
+    if (unit === "㎡" && widthUnit(m) === "mm" && m.w) chk.push("앱에서 폭을 mm로 입력함 → 너비(m) 확인");
+    // 물량: 양식 수식 + 미리 계산한 값 (아이패드 미리보기는 수식을 계산 안 하고 이 값을 보여줌)
+    const qty = (() => { const W = Number(m.w) || 0, L = Number(m.l) || 0, C = Number(m.count) || 1, q = (v) => String(Math.round(v * 1e6) / 1e6);
+      return unit === "m" ? q(L * C) + "m" : unit === "㎡" ? q(W * L * C) + "㎡" : "-"; })();
+    put(`K${r}`, { t: "s", v: qty, f: `IF(I${r}="m",H${r}*J${r}&"m",IF(I${r}="㎡",G${r}*H${r}*J${r}&"㎡",IF(I${r}="EA",J${r}&"EA","-")))` });
     put(`L${r}`, str(cause)); put(`M${r}`, str(best[1]));
     if (F3_PRI[best[1]]) put(`N${r}`, { t: "n", v: F3_PRI[best[1]] });
     put(`O${r}`, { t: "n", v: i + 1 }); put(`P${r}`, str(m.photo || ""));
-    put(`Q${r}`, str(m.memo || ""));
+    put(`Q${r}`, str([m.memo, ...chk.map((x) => "※ " + x)].filter(Boolean).join(" / ")));
     r++;
   });
-  put(`B${r}`, str("- 이 하 여 백 -")); merges.push(XLSX.utils.decode_range(`B${r}:P${r}`));
+  put(`B${r}`, str("- 이 하 여 백 -"));
   ws["!ref"] = `A1:Q${r}`;
-  ws["!merges"] = merges;
+  ws["!rows"] = Array.from({ length: r }, () => ({ hpt: 18 }));
   // C 위치, N 우선순위, O 사진 순번은 숨김 (양식과 같게, 붙여넣을 땐 같이 복사됨)
   ws["!cols"] = [3, 7, 8, 9, 14, 22, 8, 7, 5, 5, 9, 14, 15, 6, 5, 9, 24].map((w, i) => ({ wch: w, hidden: [2, 13, 14].includes(i) }));
   const wb = XLSX.utils.book_new();
@@ -2256,6 +2258,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build ffef92231d -->
+<!-- build c85e12fadd -->
 </body>
 </html>
