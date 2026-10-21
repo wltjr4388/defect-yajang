@@ -245,7 +245,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "70e854f87f"; window.DY_BUILT = "2026-10-21 10:16";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "b270ed1ccd"; window.DY_BUILT = "2026-10-21 10:23";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -265,7 +265,9 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const OFFLINE_APP = !!window.DY_OFFLINE; // 홈 화면 앱(GitHub Pages) 빌드에서만 true
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = window.DY_WORKER_SRC || "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "계단 슬래브", "기둥+조적벽체", "보+조적벽체", "보+기둥+조적벽체"];
+const DEFAULT_MEMBERS = ["조적벽체", "벽체", "기둥", "천장 보", "천장 슬래브", "계단 슬래브"];
+// 부재 여러 개 고르면 "+"로 합침: 슬래브 → 보 → 기둥 → 벽체 → 조적벽체 순, 합칠 때 "천장 보"는 "보"로 줄임 (예: 보+기둥+조적벽체)
+const MEMBER_ORDER = ["천장 슬래브", "계단 슬래브", "천장 보", "기둥", "벽체", "조적벽체"];
 // 결함종류는 분류 탭으로 묶음. 균열은 하나로 저장: 수직·수평·경사는 여러 개 고르면 "수직+수평균열"로 합침
 const DEFAULT_GROUPS = [
   { name: "균열", items: ["수직균열", "수평균열", "경사균열", "접합부 이격 균열", "망상균열"] },
@@ -411,7 +413,17 @@ function floorKey(f) {
   m = s.match(/(\d+)/); if (m) return Number(m[1]);
   return 5000;
 }
-function members() { return (S.proj && S.proj.prefs && S.proj.prefs.members) || DEFAULT_MEMBERS; }
+function members() { return ((S.proj && S.proj.prefs && S.proj.prefs.members) || DEFAULT_MEMBERS).filter((x) => !x.includes("+")); }
+const shortMember = (x) => x.replace(/^천장 /, "");
+function splitMember(s) {
+  const list = members();
+  return String(s || "").split("+").map((x) => x.trim()).filter(Boolean).map((x) => list.includes(x) ? x : (list.find((f) => shortMember(f) === x) || x));
+}
+function joinMember(parts) {
+  const rank = (x) => { const i = MEMBER_ORDER.indexOf(x); return i >= 0 ? i : 100 + members().indexOf(x); };
+  parts = [...new Set(parts)].sort((a, b) => rank(a) - rank(b));
+  return parts.length > 1 ? parts.map(shortMember).join("+") : (parts[0] || "");
+}
 // 예전 설정에 남은 "수직+수평균열" 같은 합친 이름은 버튼에서 뺌 (방향 버튼으로 고름)
 function groups() { const gs = (S.proj && S.proj.prefs && S.proj.prefs.typeGroups) || DEFAULT_GROUPS; return gs.map((g) => ({ ...g, items: g.items.filter((it) => (crackDirs(it) || []).length < 2) })); }
 // 방향 균열: "수직+경사균열" → ["수직", "경사"], 아니면 null
@@ -1473,6 +1485,10 @@ function chipsHTML(field, list, val) {
   const all = [...list]; if (val && !all.includes(val)) all.push(val);
   return `<div class="chips" data-field="${field}">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${v === val}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="${field}">+ 직접</button></div>`;
 }
+function memberHTML(val) {
+  const ps = splitMember(val), all = [...members(), ...ps.filter((x) => !members().includes(x))];
+  return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
+}
 function dtypeHTML(m) {
   const gs = groups(), sel = splitTypes(m.dtype);
   if (!gs.some((g) => g.name === S.dtab)) S.dtab = gs[0] ? gs[0].name : "";
@@ -1497,7 +1513,7 @@ function renderPanel() {
       <div class="t"><span class="eyebrow">${esc(floor || "층 미지정")} · ${KIND_LABEL[m.type]}</span><span class="big"><button class="no-edit" id="f-no">결함 <span class="num">${esc(m.no)}</span><small>번호 바꾸기</small></button></span></div>
       <button class="btn danger" id="f-del">삭제</button>
     </div>
-    <div class="fld"><span class="lab">부재</span>${chipsHTML("member", members(), m.member)}</div>
+    <div class="fld"><span class="lab">부재 · 여러 개 고르면 합쳐짐</span>${memberHTML(m.member)}</div>
     <div class="fld"><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
     <div class="row2">
       <div class="fld"><span class="lab">폭${wu ? `(${wu})` : ""}</span><input class="inp num" id="f-w" inputmode="decimal" autocomplete="off" value="${esc(m.w)}" placeholder="${wu === "m" ? "예: 0.5" : "예: 0.3"}"></div>
@@ -1525,8 +1541,10 @@ function renderPanel() {
     if (rerender) renderPanel();
   };
   const mbox = P.querySelector('.chips[data-field="member"]');
-  mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => upd("member", b.dataset.v, true)));
-  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => upd("member", v, true));
+  // 부재: 여러 개 고르면 "보+조적벽체"처럼 합침
+  const toggleMember = (v) => { const ps = splitMember(selMark().member); upd("member", joinMember(ps.includes(v) ? ps.filter((x) => x !== v) : [...ps, v]), true); };
+  mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.v)));
+  mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!splitMember(selMark().member).includes(v)) toggleMember(v); });
   // 결함종류: 여러 개 선택, 균열은 하나만 (수직·수평·경사는 서로 합쳐서 "수직+수평균열")
   const toggleType = (t) => {
     let sel = splitTypes(selMark().dtype);
@@ -2086,6 +2104,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 70e854f87f -->
+<!-- build b270ed1ccd -->
 </body>
 </html>
