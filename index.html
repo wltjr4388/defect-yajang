@@ -255,7 +255,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "70c27c96c6"; window.DY_BUILT = "2026-10-21 11:15";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "bf5cb95417"; window.DY_BUILT = "2026-10-21 11:20";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -993,7 +993,7 @@ function renderPenBar() {
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다", arrow: "결함 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1316,7 +1316,7 @@ vp.addEventListener("pointerdown", (e) => {
   if (MARK_TOOLS.includes(S.tool) && !fingerOnly) {
     if (!floorOfPage(curKey())) { ptrs.clear(); floorModal(curKey()); return; }
     gest = { kind: "draw", tool: S.tool, start: p, cur: p };
-    draft = { type: S.tool, pts: S.tool === "point" ? [p] : [p, p] };
+    draft = S.tool === "area" ? { type: "area", pts: [p, p] } : { type: "point", pts: [p] };
     renderOverlay();
   } else {
     gest = panG();
@@ -1352,7 +1352,8 @@ vp.addEventListener("pointermove", (e) => {
   }
   if (gest.kind === "draw") {
     gest.cur = p;
-    if (gest.tool === "point") draft.pts = [p]; else draft.pts = [gest.start, p];
+    if (gest.tool === "point" || gest.tool === "arrow") draft = screenDist(gest.start, p) < 14 ? { type: "point", pts: [gest.start] } : { type: "arrow", pts: [gest.start, p] };
+    else draft.pts = [gest.start, p];
     renderOverlay(); return;
   }
   if (gest.kind === "move") {
@@ -1426,17 +1427,15 @@ vp.addEventListener("wheel", (e) => {
 function finishDraw(g) {
   draft = null;
   let type = g.tool, pts;
-  // 도구마다 자기 표시만: 화살표·영역은 짧게 누르면 점을 만들지 않고 안내만
+  // 점·화살표는 같은 방식: 한 번 찍으면 점, 찍고 끌면 번호가 끈 곳으로 (화살표). 영역은 끌어야만
   const tooShort = (msg) => { renderOverlay(); toast(msg); };
-  if (type === "point") pts = [g.cur];
-  else if (type === "area") {
+  if (type === "point" || type === "arrow") {
+    if (screenDist(g.start, g.cur) < 14) { type = "point"; pts = [g.start]; } else { type = "arrow"; pts = [g.start, g.cur]; }
+  } else if (type === "area") {
     const w = Math.abs(g.start[0] - g.cur[0]) * S.base * S.z, h = Math.abs(g.start[1] - g.cur[1]) * S.base * S.z;
     if (w < 12 || h < 12) return tooShort("영역은 대각선으로 끌어서 그립니다 · 점은 점 도구로");
     pts = [g.start, g.cur];
-  } else {
-    if (screenDist(g.start, g.cur) < 14) return tooShort("화살표는 결함 위치에서 번호 놓을 곳까지 끕니다 · 점은 점 도구로");
-    pts = [g.start, g.cur];
-  }
+  } else pts = [g.start, g.cur];
   const k = curKey(); const floor = floorOfPage(k);
   pushUndo();
   const m = {
@@ -1734,8 +1733,7 @@ function renderPageSummary(P) {
         <small>${m.photo ? esc(m.photo) : '<span class="miss">사진번호 없음</span>'}${m.memo ? " · " + esc(m.memo) : ""}</small></span>
       </button>`).join("")}</div>` : ""}
     <p class="help">
-      <b>점</b> 결함 위치를 누르면 번호가 붙습니다.<br>
-      <b>화살표</b> 결함 위치에서 번호 놓을 곳까지 끕니다. 짧게 누르면 아무것도 생기지 않습니다.<br>
+      <b>점·화살표</b> 결함 위치를 한 번 찍으면 점, 찍은 채로 끌면 번호가 끈 곳으로 가고 화살표가 됩니다.<br>
       <b>영역</b> 넓은 결함을 대각선으로 끕니다.<br>
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기는 도면 위쪽 펜 줄에서 고릅니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 쓸 때는 두 손가락으로 끌면 이동, 벌리면 확대입니다.
@@ -2166,6 +2164,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 70c27c96c6 -->
+<!-- build bf5cb95417 -->
 </body>
 </html>
