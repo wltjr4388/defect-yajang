@@ -256,7 +256,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "70ff6cfc56"; window.DY_BUILT = "2026-10-21 11:49";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "280b6c8250"; window.DY_BUILT = "2026-10-21 11:51";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1561,7 +1561,11 @@ function chipsHTML(field, list, val) {
 function memberHTML(val) {
   const base = [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
   const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
-  return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
+  // 선택 줄: 저장되는 글자처럼 "보+기둥+조적벽체" (× 누르면 그 부재만 빠짐)
+  const full = splitMember(joinMember(ps)), short = joinMember(ps).split("+");
+  const line = full.length ? `선택:` + full.map((v, i) => `<button class="tagx" data-mdel="${esc(v)}" aria-label="${esc(v)} 빼기">${esc(full.length > 1 ? short[i] : v)}<span>×</span></button>`).join(`<span class="tagc">+</span>`) : "선택 없음 · 여러 개 고르면 합쳐집니다";
+  return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>
+    <div class="sel-line">${line}</div>`;
 }
 // 선택 표시도 저장되는 글자처럼: "미장 박리, 박락" (× 누르면 그 항목만 빠짐)
 function selTags(sel) {
@@ -1593,7 +1597,7 @@ function renderPanel() {
       <div class="t"><span class="eyebrow">${esc(floor || "층 미지정")} · ${KIND_LABEL[m.type]}</span><span class="big"><button class="no-edit" id="f-no">결함 <span class="num">${esc(m.no)}</span><small>번호 바꾸기</small></button></span></div>
       <button class="btn danger" id="f-del">삭제</button>
     </div>
-    <div class="fld"><span class="lab">부재 · 여러 개 고르면 합쳐짐</span>${memberHTML(m.member)}</div>
+    <div class="fld"><span class="lab">부재</span>${memberHTML(m.member)}</div>
     <div class="fld"><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
     <div class="row2">
       <div class="fld"><span class="lab">폭${wu ? `(${wu})` : ""}</span><input class="inp num" id="f-w" inputmode="decimal" autocomplete="off" value="${esc(m.w)}" placeholder="${wu === "m" ? "예: 0.5" : "예: 0.3"}"></div>
@@ -1624,6 +1628,7 @@ function renderPanel() {
   // 부재: 여러 개 고르면 "보+조적벽체"처럼 합침
   const toggleMember = (v) => { const ps = splitMember(selMark().member); upd("member", joinMember(ps.includes(v) ? ps.filter((x) => x !== v) : [...ps, v]), true); };
   mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.v)));
+  P.querySelectorAll("[data-mdel]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.mdel)));
   mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!members().includes(v)) addCustom("member", v); if (!splitMember(selMark().member).includes(v)) toggleMember(v); });
   // 결함종류: 여러 개 선택, 균열은 하나만 (수직·수평·경사는 서로 합쳐서 "수직+수평균열")
   const toggleType = (t) => {
@@ -2180,6 +2185,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 70ff6cfc56 -->
+<!-- build 280b6c8250 -->
 </body>
 </html>
