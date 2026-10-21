@@ -121,6 +121,7 @@ button { cursor: pointer; }
 .bar-tools { display: grid; grid-template-columns: 1fr auto 1fr; padding-block: 2px 4px; border-top: 1px solid var(--line); }
 .bar-tools .bt-l, .bar-tools .bt-r { display: flex; gap: 4px; align-items: center; }
 .bar-tools .bt-r { justify-content: flex-end; }
+.chips .brk { flex-basis: 100%; height: 0; }
 .pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
 .pair .x { color: var(--muted); }
 .rbxyz { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -323,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1e3faee638"; window.DY_BUILT = "2026-10-21 18:01";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "ed4354fb5d"; window.DY_BUILT = "2026-10-21 18:05";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -390,6 +391,7 @@ function compText(m) { return m.cmin || m.cmax ? `${m.cmin || "?"}~${m.cmax || "
 function sizeText(m) { return m.sw || m.sh ? `${m.sw || "?"}×${m.sh || "?"}` : ""; }
 // 장비조사: 점 = 수평부재(보·슬래브), 화살표 = 수직부재(기둥·벽체). 직접 입력한 부재는 양쪽 다 보임
 const isHorizMember = (x) => /보|슬래브/.test(x), isVertMember = (x) => /벽|기둥/.test(x);
+const EQUIP_HMEMBERS = ["바닥 보", "천장 보", "바닥 슬래브", "천장 슬래브"], EQUIP_VMEMBERS = ["벽체", "기둥"];
 function eqMemberKeep(m) { const v = m.type === "arrow"; return (x) => (v ? isVertMember(x) : isHorizMember(x)) || (!isHorizMember(x) && !isVertMember(x)); }
 function isEquip(p) { p = p === undefined ? S.proj : p; return FEATURE_EQUIP && !!p && p.kind === "equip"; }
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
@@ -1767,11 +1769,12 @@ function chipsHTML(field, list, val) {
   const all = [...list]; if (val && !all.includes(val)) all.push(val);
   return `<div class="chips" data-field="${field}">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${v === val}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="${field}">+ 직접</button></div>`;
 }
-function memberHTML(val, keep) {
-  let base = [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
-  if (keep) base = base.filter(keep);
+// list: 기본 버튼 목록을 따로 줄 때(장비조사), brk: 그 개수 뒤에서 줄바꿈
+function memberHTML(val, keep, list, brk) {
+  let base = list ? [...list, ...recentCustom("member").filter((x) => !list.includes(x))] : [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
+  if (keep) base = base.filter((x) => (list && list.includes(x)) || keep(x));
   const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
-  return `<div class="chips" data-field="member">${all.map((v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
+  return `<div class="chips" data-field="member">${all.map((v, i) => `${brk && i === brk ? '<span class="brk"></span>' : ""}<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
 }
 // 선택 표시도 저장되는 글자처럼: "미장 박리, 박락" (× 누르면 그 항목만 빠짐)
 function selTags(sel) {
@@ -1815,7 +1818,7 @@ function renderEquipPanel(P, m) {
       <span class="meta">${esc(floor || "층 미지정")} · ${m.type === "arrow" ? "화살표(수직)" : "점(수평)"}</span>
     </div>
     ${equipSummary(m)}
-    <div class="fld sec"><span class="lab">부재 <span style="font-weight:500;color:var(--muted)">· ${m.type === "arrow" ? "수직부재" : "수평부재"}</span></span>${memberHTML(m.member, eqMemberKeep(m))}</div>
+    <div class="fld sec"><span class="lab">부재 <span style="font-weight:500;color:var(--muted)">· ${m.type === "arrow" ? "수직부재" : "수평부재"}</span></span>${m.type === "arrow" ? memberHTML(m.member, eqMemberKeep(m), EQUIP_VMEMBERS) : memberHTML(m.member, eqMemberKeep(m), EQUIP_HMEMBERS, 2)}</div>
     <div class="fld sec"><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
     ${rebar ? `<div class="fld sec"><span class="lab">철근배근 이미지번호</span>
       <div class="rbxyz">${RB_AXES.map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
@@ -2616,6 +2619,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 1e3faee638 -->
+<!-- build ed4354fb5d -->
 </body>
 </html>
