@@ -178,6 +178,10 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--ink); }
+.swatch[data-slot] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.swatch.editing { box-shadow: 0 0 0 3px var(--accent); }
+.pal-tip { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.pal-tip .linkbtn { border: 0; background: none; padding: 4px 2px; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; }
 .swatch.more { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
 .swatch.more[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--accent); }
 .palette { display: grid; grid-template-columns: repeat(13, 1fr); margin-top: 10px; border-radius: 10px; overflow: hidden; max-width: 420px; }
@@ -249,7 +253,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "816b608f48"; window.DY_BUILT = "2026-10-21 10:25";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c378fe1ee8"; window.DY_BUILT = "2026-10-21 10:59";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -961,15 +965,15 @@ function renderPenBar() {
     pb.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPenBar(); }));
     return;
   }
-  const st = penStyle(), pc = penColor(st), custom = !PEN_COLORS.some(([c]) => c === pc);
+  const st = penStyle(), pc = penColor(st), custom = !penColors().some(([c]) => c === pc);
   pb.innerHTML = `<div class="pb-row">
-      ${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}
+      ${penColors().map(([c, nm], i) => `<button class="swatch${palSlot === i ? " editing" : ""}" data-pc="${c}" data-slot="${i}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}
       ${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}
       <button class="swatch more" data-pal aria-label="색상표" aria-expanded="${palOpen}"></button>
       <span class="sep"></span>
       ${PEN_WIDTHS.map(([w, nm]) => `<button class="pb-w" data-pw="${w}" aria-label="${nm}" aria-pressed="${(st.w || 1) === w}"><i style="height:${Math.max(2, w * 3)}px;background:${pc}"></i></button>`).join("")}
     </div>
-    ${palOpen ? `<div class="palette">${PALETTE.flat().map((c) => `<button data-pc="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${pc === c}"></button>`).join("")}</div>` : ""}`;
+    ${palOpen ? paletteHTML(pc) : ""}`;
   bindPenOpts(pb, (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; if (v.color) palOpen = false; touch(null); renderPenBar(); }, renderPenBar);
 }
 function showHint() {
@@ -1120,16 +1124,43 @@ function penStyle() { return (S.proj && S.proj.prefs && S.proj.prefs.pen) || { c
 // 색상표: 무채색 1줄 + 색상 12개 × 밝기 8단계
 const hslHex = (h, s, l) => { s /= 100; l /= 100; const f = (n) => { const k = (n + h / 30) % 12, c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c * 255).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
 const PALETTE = [20, 30, 40, 50, 60, 70, 80, 90].map((l, r) => [hslHex(0, 0, r === 0 ? 0 : (r * 100) / 7), ...Array.from({ length: 12 }, (_, i) => hslHex(i * 30, 90, l))]);
-let palOpen = false;
+let palOpen = false, palSlot = -1, heldAt = 0;   // palSlot: 색을 바꾸는 중인 기본 색 칸 (길게 눌러서)
+// 기본 펜 색 5칸은 바꿀 수 있음 (이 태블릿에 저장, 모든 조사에 같이 씀)
+function penColors() {
+  let cs = null; try { cs = JSON.parse(localStorage.getItem("dy-pen-colors")); } catch (e) {}
+  return PEN_COLORS.map(([c, nm], i) => (Array.isArray(cs) && /^#[0-9a-f]{6}$/i.test(cs[i] || "") && cs[i] !== c ? [cs[i], "바꾼 색 " + (i + 1)] : [c, nm]));
+}
+function setPenColor(i, c) {
+  const cs = penColors().map(([x]) => x); if (c) cs[i] = c; else cs[i] = PEN_COLORS[i][0];
+  try { localStorage.setItem("dy-pen-colors", JSON.stringify(cs)); } catch (e) {}
+}
+function paletteHTML(pc) {
+  const tip = palSlot >= 0 ? `<div class="pal-tip"><b>${palSlot + 1}번째 칸</b>에 넣을 색을 고르세요 · <button class="linkbtn" data-slot-reset>기본 색으로</button></div>`
+    : `<div class="pal-tip">기본 색 칸을 길게 누르면 그 칸 색을 바꿀 수 있습니다</div>`;
+  return `${tip}<div class="palette">${PALETTE.flat().map((c) => `<button data-pc="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${pc === c}"></button>`).join("")}</div>`;
+}
 function penOptsHTML(cur) {
-  const pc = penColor(cur), custom = !PEN_COLORS.some(([c]) => c === pc);
-  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}<button class="swatch more" data-pal aria-label="색상표" aria-expanded="${palOpen}"></button></div>
-      ${palOpen ? `<div class="palette">${PALETTE.flat().map((c) => `<button data-pc="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${pc === c}"></button>`).join("")}</div>` : ""}</div>
+  const pc = penColor(cur), custom = !penColors().some(([c]) => c === pc);
+  return `<div class="fld"><span class="lab">색상</span><div class="swatches">${penColors().map(([c, nm], i) => `<button class="swatch${palSlot === i ? " editing" : ""}" data-pc="${c}" data-slot="${i}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}<button class="swatch more" data-pal aria-label="색상표" aria-expanded="${palOpen}"></button></div>
+      ${palOpen ? paletteHTML(pc) : ""}</div>
     <div class="fld"><span class="lab">선 두께</span><div class="chips">${PEN_WIDTHS.map(([w, nm]) => `<button class="chip wchip" data-pw="${w}" aria-pressed="${((cur && cur.w) || 1) === w}"><i style="height:${Math.max(2, w * 3)}px"></i>${nm}</button>`).join("")}</div></div>`;
 }
 function bindPenOpts(box, apply, rerender = renderPanel) {
-  box.querySelectorAll("[data-pc]").forEach((b) => (b.onclick = () => apply({ color: b.dataset.pc })));
-  box.querySelector("[data-pal]").onclick = () => { palOpen = !palOpen; rerender(); };
+  box.querySelectorAll("[data-pc]").forEach((b) => (b.onclick = () => {
+    if (Date.now() - heldAt < 800) return;   // 길게 누른 뒤 손 뗄 때 들어오는 누름은 무시
+    if (palSlot >= 0 && b.closest(".palette")) { setPenColor(palSlot, b.dataset.pc); palSlot = -1; }
+    apply({ color: b.dataset.pc });
+  }));
+  // 기본 색 칸 길게 누르기 → 그 칸 색 바꾸기
+  box.querySelectorAll("[data-slot]").forEach((b) => {
+    let t = null; const stop = () => clearTimeout(t);
+    b.addEventListener("pointerdown", () => { t = setTimeout(() => { heldAt = Date.now(); palSlot = Number(b.dataset.slot); palOpen = true; rerender(); }, 500); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => b.addEventListener(ev, stop));
+    b.addEventListener("contextmenu", (e) => e.preventDefault());
+  });
+  const rs = box.querySelector("[data-slot-reset]");
+  if (rs) rs.onclick = () => { const i = palSlot; setPenColor(i, null); palSlot = -1; apply({ color: PEN_COLORS[i][0] }); };
+  box.querySelector("[data-pal]").onclick = () => { palOpen = !palOpen; palSlot = -1; rerender(); };
   box.querySelectorAll("[data-pw]").forEach((b) => (b.onclick = () => apply({ w: Number(b.dataset.pw) })));
 }
 function noteSVG(n, col, u) {
@@ -2110,6 +2141,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 816b608f48 -->
+<!-- build c378fe1ee8 -->
 </body>
 </html>
