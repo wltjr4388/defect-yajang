@@ -311,7 +311,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "a944a3226b"; window.DY_BUILT = "2026-10-21 16:21";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "497ce9e686"; window.DY_BUILT = "2026-10-21 16:28";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1361,6 +1361,7 @@ function geomOf(o) { return clone({ pts: o.pts, lab: o.lab, at: o.at }); }
 function setGeom(o, g) { if (g.pts) o.pts = g.pts; if (g.at) o.at = g.at; if (g.lab) o.lab = g.lab; else delete o.lab; }
 function startPinch() {
   const [a, b] = [...ptrs.values()];
+  setMoving(true);
   gest = { kind: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, m0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, z0: S.z, tx0: S.tx, ty0: S.ty };
 }
 function selectItem(id) { if (S.sel !== id) { S.sel = id; renderOverlay(); renderPanel(); } }
@@ -1368,7 +1369,7 @@ function selectItem(id) { if (S.sel !== id) { S.sel = id; renderOverlay(); rende
 ["pointerdown", "pointermove", "pointerup", "wheel"].forEach((ev) => $("#penbar").addEventListener(ev, (e) => e.stopPropagation()));
 vp.addEventListener("pointerdown", (e) => {
   if (!S.pi) return;
-  viewAnim++;   // 확대·축소 움직이는 중에 손대면 거기서 멈춤
+  stopViewAnim();   // 확대·축소 움직이는 중에 손대면 거기서 멈춤
   try { vp.setPointerCapture(e.pointerId); } catch (_) {}
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
   if (e.pointerType === "pen" && fingerMode() !== "pan") { setFingerMode("pan"); renderBar(); }
@@ -1421,7 +1422,7 @@ vp.addEventListener("pointermove", (e) => {
     const py = (gest.m0.y - r.top - gest.ty0) / (S.base * gest.z0);
     const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
     S.z = z; S.tx = mx - px * S.base * z; S.ty = my - py * S.base * z; clampView();
-    applyTransform(); renderOverlay(); return;
+    applyTransform(); return;   // 결함 표시는 도면 좌표라 같이 커짐 → 매번 다시 그리지 않음 (끊김 방지)
   }
   if (gest.kind === "pan") {
     const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
@@ -1488,19 +1489,27 @@ function doubleTap(x, y) {
   Object.assign(S, from); animateView(to);
   return true;
 }
-// 화면 배율·위치를 부드럽게 바꿈 (0.25초, 끝으로 갈수록 느려짐). 도중엔 화면 이동만, 끝나고 도면을 선명하게 다시 그림
-let viewAnim = 0;
+// 화면 배율·위치를 부드럽게 바꿈 (0.25초): 브라우저 전환(transition)에 맡기고, 움직이는 동안만 도면을 한 장 그림으로 올려(will-change)
+// 다시 그리지 않게 함 → 아이패드에서 끊김 없음. 끝나면 결함 표시·도면을 선명하게 다시 그림
+let viewAnim = 0, viewAnimOn = false;
+function setMoving(on) { $("#stage").style.willChange = on ? "transform" : ""; }
 function animateView(to, ms = 250) {
-  const from = { z: S.z, tx: S.tx, ty: S.ty }, t0 = performance.now(), id = ++viewAnim;
-  // 배율은 곱으로 보간해야 확대·축소 속도가 고르게 느껴짐. 위치는 고정점이 따라가도록 같은 비율로
-  const step = (now) => {
+  const st = $("#stage"), id = ++viewAnim;
+  setMoving(true); viewAnimOn = true;
+  requestAnimationFrame(() => {
     if (id !== viewAnim) return;
-    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
-    S.z = from.z * Math.pow(to.z / from.z, e); S.tx = from.tx + (to.tx - from.tx) * e; S.ty = from.ty + (to.ty - from.ty) * e;
-    applyTransform();
-    if (k < 1) requestAnimationFrame(step); else { renderOverlay(); scheduleRender(); }
-  };
-  requestAnimationFrame(step);
+    st.style.transition = `transform ${ms}ms cubic-bezier(.25,.8,.3,1)`;
+    S.z = to.z; S.tx = to.tx; S.ty = to.ty; applyTransform();
+    setTimeout(() => { if (id !== viewAnim) return; st.style.transition = ""; viewAnimOn = false; setMoving(false); renderOverlay(); scheduleRender(); }, ms + 40);
+  });
+}
+// 움직이는 중에 손대면 지금 보이는 자리에서 멈춤
+function stopViewAnim() {
+  viewAnim++;
+  if (!viewAnimOn) return;
+  viewAnimOn = false;
+  const st = $("#stage"), m = new DOMMatrix(getComputedStyle(st).transform);
+  st.style.transition = ""; S.z = m.a; S.tx = m.e; S.ty = m.f; applyTransform(); setMoving(false); renderOverlay(); scheduleRender();
 }
 // 옆으로 쓸기: 화면 폭 1/4 이상, 또는 빠르게(0.3초 안에 60px 이상) 거의 수평으로 움직였을 때만
 function swipePage(dx, dy, dt) {
@@ -1520,7 +1529,7 @@ function endPointer(e) {
   if (!gest) return;
   if (gest.kind === "pinch") {
     if (ptrs.size < 2) {
-      scheduleRender();
+      setMoving(false); renderOverlay(); scheduleRender();
       if (ptrs.size === 1) { const [q] = [...ptrs.values()]; gest = { kind: "pan", sx: q.x, sy: q.y, tx0: S.tx, ty0: S.ty, moved: true }; }
       else gest = null;
     }
@@ -2386,6 +2395,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build a944a3226b -->
+<!-- build 497ce9e686 -->
 </body>
 </html>
