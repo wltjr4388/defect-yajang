@@ -255,7 +255,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "440a4f90ce"; window.DY_BUILT = "2026-10-21 11:42";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "95fe976bc8"; window.DY_BUILT = "2026-10-21 11:43";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -986,7 +986,7 @@ function renderPenBar() {
       ${custom ? `<button class="swatch" data-pc="${pc}" style="background:${pc}" aria-label="고른 색" aria-pressed="true"></button>` : ""}
       <button class="swatch more" data-pal aria-label="색상표" aria-expanded="${palOpen}"></button>
       <span class="sep"></span>
-      ${PEN_WIDTHS.map(([w, nm]) => `<button class="pb-w" data-pw="${w}" aria-label="${nm}" aria-pressed="${(st.w || 1) === w}"><i style="height:${Math.max(2, w * 3)}px;background:${pc}"></i></button>`).join("")}
+      ${PEN_WIDTHS.map(([w, nm]) => `<button class="pb-w" data-pw="${w}" aria-label="${nm}" aria-pressed="${(st.w || 1) === w}"><i style="height:${Math.max(2, w * 3)}px;background:var(--ink)"></i></button>`).join("")}
     </div>
     ${palOpen ? paletteHTML(pc) : ""}`;
   bindPenOpts(pb, (v) => { S.proj.prefs.pen = { ...penStyle(), ...v }; if (v.color) palOpen = false; touch(null); renderPenBar(); }, renderPenBar);
@@ -2174,6 +2174,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 440a4f90ce -->
+<!-- build 95fe976bc8 -->
 </body>
 </html>
