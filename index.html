@@ -134,6 +134,10 @@ button { cursor: pointer; }
 #penbar .sep { width: 1px; height: 26px; background: var(--line); margin: 0 4px; }
 .pb-w { width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; display: grid; place-items: center; }
 .pb-w i { display: block; width: 24px; border-radius: 4px; }
+.pb-er { width: auto; padding: 0 10px; display: inline-flex; gap: 6px; }
+.pb-er i { border-radius: 50%; border: 2px solid var(--ink); background: none; }
+.pb-er b { font-size: 15px; }
+#penbar .pb-lab { font-size: 13px; font-weight: 700; color: var(--muted); padding: 0 4px; white-space: nowrap; }
 .pb-w[aria-pressed="true"] { background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--ink); }
 #hint { position: absolute; left: 12px; bottom: 12px; background: rgba(22,32,43,.82); color: #fff; font-size: 13px; padding: 6px 10px; border-radius: 6px; pointer-events: none; }
 
@@ -245,7 +249,7 @@ textarea.inp { padding: 8px 10px; min-height: 64px; resize: vertical; line-heigh
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3979abd11a"; window.DY_BUILT = "2026-10-21 10:24";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "816b608f48"; window.DY_BUILT = "2026-10-21 10:25";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -948,10 +952,15 @@ function renderBar() {
   updateSync();
   renderPenBar();
 }
-// 펜 도구일 때 도면 위쪽에 뜨는 펜 줄: 색 · 색상표 · 굵기
+// 펜 도구일 때 도면 위쪽에 뜨는 펜 줄: 색 · 색상표 · 굵기 (지우개면 크기)
 function renderPenBar() {
-  const pb = $("#penbar"), on = S.tool === "pen";
+  const pb = $("#penbar"), on = S.tool === "pen" || S.tool === "eraser";
   pb.hidden = !on; if (!on) return;
+  if (S.tool === "eraser") {
+    pb.innerHTML = `<div class="pb-row"><span class="pb-lab">지우개</span>${ERASER.map(([k2, nm, px]) => `<button class="pb-w pb-er" data-er="${k2}" aria-label="${nm}" aria-pressed="${eraserSize() === k2}"><i style="width:${px / 2 + 4}px;height:${px / 2 + 4}px"></i><b>${nm}</b></button>`).join("")}<span class="pb-lab">펜 메모만 지워집니다</span></div>`;
+    pb.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPenBar(); }));
+    return;
+  }
   const st = penStyle(), pc = penColor(st), custom = !PEN_COLORS.some(([c]) => c === pc);
   pb.innerHTML = `<div class="pb-row">
       ${PEN_COLORS.map(([c, nm]) => `<button class="swatch" data-pc="${c}" style="background:${c}" aria-label="${nm}" aria-pressed="${pc === c}"></button>`).join("")}
@@ -965,7 +974,7 @@ function renderPenBar() {
 }
 function showHint() {
   const h = $("#hint");
-  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 결함 표시는 지워지지 않습니다" }[S.tool];
+  const msg = { pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: "결함 위치를 누르세요", arrow: "결함 위치에서 번호 놓을 곳까지 끌어주세요", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1656,8 +1665,6 @@ function renderPageSummary(P) {
   };
   P.innerHTML = `
     <div class="ph"><div class="t"><span class="eyebrow">이 도면</span><span class="big">${esc(fl || "층 미지정")}</span></div></div>
-    ${S.tool === "eraser" ? `<div class="pen-opts" id="er-opts"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">지우개 · 펜 메모만 지워집니다</span>
-      <div class="fld"><span class="lab">크기</span><div class="chips">${ERASER.map(([k2, nm, px]) => `<button class="chip wchip" data-er="${k2}" aria-pressed="${eraserSize() === k2}"><i style="width:${px / 2}px;height:${px / 2}px;border-radius:50%"></i>${nm}</button>`).join("")}</div></div></div>` : ""}
     ${fl ? `<label class="cur-photo"><span class="lab" style="font-size:12px;font-weight:700;color:var(--muted)">${esc(fl)} 현황사진 · 야장 PDF 왼쪽 위에 찍힘</span>
       <input class="inp num" id="f-cur" autocomplete="off" value="${esc(photoRange(fl))}" placeholder="예: 6500-6520"></label>` : ""}
     <div class="stat">
@@ -1677,7 +1684,6 @@ function renderPageSummary(P) {
       <b>펜</b> 번호 없는 메모입니다. 색과 굵기는 도면 위쪽 펜 줄에서 고릅니다.<br>
       번호 원을 끌면 번호만 옮겨집니다. 표시를 누르면 주황색 손잡이가 나오고, 손잡이로 결함 위치나 영역 모서리를 옮깁니다. 애플펜슬·S펜으로 그리면 손가락은 이동·확대에만 쓰입니다. 펜 없이 손가락으로 쓸 때는 두 손가락으로 끌면 이동, 벌리면 확대입니다.
     </p>`;
-  P.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPanel(); }));
   if ($("#f-cur")) $("#f-cur").oninput = (e) => { S.proj.photoRanges[fl] = e.target.value.trim(); touch(null); renderOverlay(); };
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
 }
@@ -2104,6 +2110,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 3979abd11a -->
+<!-- build 816b608f48 -->
 </body>
 </html>
