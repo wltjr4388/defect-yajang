@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "eaee80cb8c"; window.DY_BUILT = "2026-10-21 13:20";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "797c2368ae"; window.DY_BUILT = "2026-10-21 13:21";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -796,7 +796,7 @@ async function renderHome() {
         ${OFFLINE_APP ? `<ol>
           <li>처음 한 번은 인터넷이 될 때 열고 <b>홈 화면에 추가</b>하세요. 그 뒤로는 인터넷 없이 아이콘으로 열립니다.</li>
           <li>조사와 도면은 이 태블릿 안에만 저장됩니다. 하루가 끝나면 <b>내보내기 → 백업 파일</b>을 꼭 저장하세요.</li>
-          <li>두 명이 나눠서 했다면 한 태블릿에서 <b>백업 파일 불러와 합치기</b>로 합칩니다. 같은 도면 파일로 조사를 만들어야 합니다.</li>
+          <li>두 명이 나눠서 했다면 한 태블릿에서 <b>설정(톱니바퀴) → 백업 파일 불러와 합치기</b>로 합칩니다. 같은 도면 파일로 조사를 만들어야 합니다.</li>
         </ol>` : `<ol>
           <li>사무실에서 조사를 만들고 도면을 미리 올려두세요. 현장에 인터넷이 없어도 이어서 쓸 수 있습니다.</li>
           <li>현장에서는 이 화면을 닫지 말고 그대로 두세요. 페이지를 다시 열 때는 인터넷이 필요합니다.</li>
@@ -947,6 +947,7 @@ const ICON = {
   undo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>`,
   redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg>`,
   fit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`,
+  gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`,
 };
 function renderBar() {
   const p = S.proj; if (!p) return;
@@ -972,6 +973,7 @@ function renderBar() {
     <button class="btn finger ${fingerMode() === "draw" ? "on" : ""}" id="t-finger" aria-label="손가락 쓰임 바꾸기">손가락 ${fingerMode() === "pan" ? "이동" : "그리기"}</button>
     <span class="grow"></span>
     <span class="sync" id="sync"></span>
+    <button class="btn" id="t-set" aria-label="설정">${ICON.gear}</button>
     <button class="btn primary" id="t-export">내보내기</button>`;
   $("#t-home").onclick = goHome;
   $("#t-prev").onclick = () => showPage(S.cur - 1);
@@ -982,6 +984,7 @@ function renderBar() {
   $("#t-redo").onclick = redo;
   $("#t-fit").onclick = () => { fit(); applyTransform(); scheduleRender(); };
   $("#t-export").onclick = exportModal;
+  $("#t-set").onclick = manageModal;
   $("#t-finger").onclick = () => { const v = fingerMode() === "pan" ? "draw" : "pan"; setFingerMode(v); renderBar(); toast(v === "pan" ? "손가락은 이동·확대만 합니다 · 표시는 펜슬로" : "손가락으로 표시합니다 · 이동은 두 손가락"); };
   document.querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { S.tool = b.dataset.tool; palOpen = false; palSlot = -1; renderBar(); showHint(); if (!S.sel) renderPanel(); }));
   updateSync();
@@ -1016,7 +1019,7 @@ function showHint() {
 
 /* ---------------- 페이지 표시 / 확대 ---------------- */
 async function showPage(idx) {
-  if (!S.pages.length) { $("#panel").innerHTML = `<p class="help">도면이 없습니다. 내보내기 메뉴에서 도면을 추가하세요.</p>`; return; }
+  if (!S.pages.length) { $("#panel").innerHTML = `<p class="help">도면이 없습니다. 설정(톱니바퀴)에서 도면을 추가하세요.</p>`; return; }
   idx = clamp(idx, 0, S.pages.length - 1);
   S.cur = idx; S.sel = null; S.proj.lastPage = idx;
   const pg = S.pages[idx];
@@ -1842,28 +1845,37 @@ function pagesModal() {
 function exportModal() {
   const n = live().length;
   openModal(`
-    <h3>내보내기 · 관리</h3>
+    <h3>내보내기</h3>
     <p class="sub">${esc(S.proj.name)} · 결함 ${n}개</p>
     <div class="menu">
-      <span class="menu-h">내보내기</span>
       <button class="btn" id="x-pdf">표시된 야장 PDF<small>도면 + 번호 표시</small></button>
       <label class="chk"><input type="checkbox" id="x-notes" ${S.proj.prefs.printNotes === false ? "" : "checked"}>펜 메모도 PDF에 넣기 <span style="color:var(--muted);font-size:13px">· 메모 ${liveNotes().length}개</span></label>
       <button class="btn" id="x-xlsx">결함 목록 엑셀<small>층·번호·부재·종류·폭×길이·개수·사진</small></button>
       <button class="btn" id="x-json">백업 파일 저장<small>하루 끝에 한 번</small></button>
-      <span class="menu-h">합치기 · 정리</span>
-      <label class="btn" for="x-import" style="cursor:pointer">백업 파일 불러와 합치기<small>다른 태블릿 작업분</small></label>
-      <input type="file" id="x-import" accept=".json,application/json" hidden>
-      ${Cloud.db ? `<button class="btn" id="x-pull">클라우드에서 새로 받기<small>다른 기기 작업분</small></button>` : ""}
-      <button class="btn" id="x-renum">층별 번호 다시 매기기<small>삭제로 빈 번호 정리</small></button>
-      <label class="btn" for="x-add" style="cursor:pointer">도면 추가<small>PDF · 사진</small></label>
-      <input type="file" id="x-add" multiple accept="application/pdf,.pdf,image/*" hidden>
-      <button class="btn" id="x-set">버튼 목록 · 표시 크기<small>부재 · 결함종류</small></button>
     </div>
     <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
   $("#x-notes").onchange = (e) => { S.proj.prefs.printNotes = e.target.checked; touch(null); };
   $("#x-pdf").onclick = () => runBusy($("#x-pdf"), exportPdf);
   $("#x-xlsx").onclick = () => runBusy($("#x-xlsx"), exportXlsx);
   $("#x-json").onclick = () => runBusy($("#x-json"), exportJson);
+}
+/* ---------------- 설정 (톱니바퀴): 도면 추가 · 합치기 · 정리 · 버튼 목록 ---------------- */
+function manageModal() {
+  openModal(`
+    <h3>설정</h3>
+    <p class="sub">${esc(S.proj.name)}</p>
+    <div class="menu">
+      <span class="menu-h">도면 · 버튼</span>
+      <label class="btn" for="x-add" style="cursor:pointer">도면 추가<small>PDF · 사진</small></label>
+      <input type="file" id="x-add" multiple accept="application/pdf,.pdf,image/*" hidden>
+      <button class="btn" id="x-set">버튼 목록 · 표시 크기<small>부재 · 결함종류</small></button>
+      <span class="menu-h">합치기 · 정리</span>
+      <label class="btn" for="x-import" style="cursor:pointer">백업 파일 불러와 합치기<small>다른 태블릿 작업분</small></label>
+      <input type="file" id="x-import" accept=".json,application/json" hidden>
+      ${Cloud.db ? `<button class="btn" id="x-pull">클라우드에서 새로 받기<small>다른 기기 작업분</small></button>` : ""}
+      <button class="btn" id="x-renum">층별 번호 다시 매기기<small>삭제로 빈 번호 정리</small></button>
+    </div>
+    <div class="sheet-foot"><button class="btn ghost" data-close>닫기</button></div>`);
   $("#x-import").onchange = (e) => { const f = e.target.files[0]; if (f) importJson(f); };
   if ($("#x-pull")) $("#x-pull").onclick = async () => { closeModal(); await pushCloud(); await pullCloud(S.proj.id, false); };
   $("#x-renum").onclick = () => {
@@ -2200,6 +2212,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build eaee80cb8c -->
+<!-- build 797c2368ae -->
 </body>
 </html>
