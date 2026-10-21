@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "fcc12a45af"; window.DY_BUILT = "2026-10-21 11:58";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "eaee80cb8c"; window.DY_BUILT = "2026-10-21 13:20";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -311,7 +311,7 @@ const KIND_LABEL = { point: "점", arrow: "화살표", area: "영역" };
 const NOTE_LABEL = { text: "글씨 메모", pen: "펜 메모" };
 const COL = { mark: "#d6332a", sel: "#e07800", note: "#1d5bd8" };
 // 펜 색상·굵기 (주황은 선택 표시 색이라 뺌)
-const PEN_COLORS = [["#1d5bd8", "파랑"], ["#16202b", "검정"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#d6332a", "빨강"]];
+const PEN_COLORS = [["#d6332a", "빨강"], ["#1d5bd8", "파랑"], ["#1f8a4c", "초록"], ["#7a3fc2", "보라"], ["#16202b", "검정"]];
 const PEN_WIDTHS = [[0.5, "가늘게"], [1, "보통"], [2, "굵게"], [3.5, "아주 굵게"]];
 // 지우개 반지름 (화면 px, 확대해도 손에 느끼는 크기는 같게)
 const ERASER = [["s", "소", 8], ["m", "중", 20], ["l", "대", 40]];
@@ -1155,14 +1155,14 @@ function penStyle() { return (S.proj && S.proj.prefs && S.proj.prefs.pen) || { c
 // 색상표: 무채색 1줄 + 색상 12개 × 밝기 8단계
 const hslHex = (h, s, l) => { s /= 100; l /= 100; const f = (n) => { const k = (n + h / 30) % 12, c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c * 255).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
 const PALETTE = [20, 30, 40, 50, 60, 70, 80, 90].map((l, r) => [hslHex(0, 0, r === 0 ? 0 : (r * 100) / 7), ...Array.from({ length: 12 }, (_, i) => hslHex(i * 30, 90, l))]);
-let palOpen = false, palSlot = -1, heldAt = 0;
+let palOpen = false, palSlot = -1;
 // 펜 줄·펜 옵션 밖을 누르면 (도면 이동, 다른 버튼 등) 색상표는 닫음. 펜 줄 안 누름은 펜 줄이 막아서 여기 안 옴
 document.addEventListener("pointerdown", (e) => { if ((palOpen || palSlot >= 0) && !(e.target.closest && e.target.closest(".pen-opts"))) closePalette(); });
-function closePalette() { if (!palOpen && palSlot < 0) return; palOpen = false; palSlot = -1; renderPenBar(); if (document.querySelector("#panel .palette")) renderPanel(); }   // palSlot: 색을 바꾸는 중인 기본 색 칸 (길게 눌러서)
+function closePalette() { if (!palOpen && palSlot < 0) return; palOpen = false; palSlot = -1; renderPenBar(); if (document.querySelector("#panel .palette")) renderPanel(); }   // palSlot: 색을 바꾸는 중인 기본 색 칸 (고른 칸 한 번 더 눌러서)
 // 기본 펜 색 5칸은 바꿀 수 있음 (이 태블릿에 저장, 모든 조사에 같이 씀)
 function penColors() {
   let cs = null; try { cs = JSON.parse(localStorage.getItem("dy-pen-colors")); } catch (e) {}
-  return PEN_COLORS.map(([c, nm], i) => (Array.isArray(cs) && /^#[0-9a-f]{6}$/i.test(cs[i] || "") && cs[i] !== c ? [cs[i], "바꾼 색 " + (i + 1)] : [c, nm]));
+  return PEN_COLORS.map(([c, nm], i) => (Array.isArray(cs) && /^#[0-9a-f]{6}$/i.test(cs[i] || "") && !PEN_COLORS.some(([d]) => d === cs[i]) ? [cs[i], "바꾼 색 " + (i + 1)] : [c, nm]));
 }
 function setPenColor(i, c) {
   const cs = penColors().map(([x]) => x); if (c) cs[i] = c; else cs[i] = PEN_COLORS[i][0];
@@ -1170,7 +1170,7 @@ function setPenColor(i, c) {
 }
 function paletteHTML(pc) {
   const tip = palSlot >= 0 ? `<div class="pal-tip"><b>${palSlot + 1}번째 칸</b>에 넣을 색을 고르세요 · <button class="linkbtn" data-slot-reset>기본 색으로</button></div>`
-    : `<div class="pal-tip">기본 색 칸을 길게 누르면 그 칸 색을 바꿀 수 있습니다</div>`;
+    : `<div class="pal-tip">고른 색 칸을 한 번 더 누르면 그 칸 색을 바꿀 수 있습니다</div>`;
   return `${tip}<div class="palette">${PALETTE.flat().map((c) => `<button data-pc="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${pc === c}"></button>`).join("")}</div>`;
 }
 function penOptsHTML(cur) {
@@ -1181,17 +1181,15 @@ function penOptsHTML(cur) {
 }
 function bindPenOpts(box, apply, rerender = renderPanel) {
   box.querySelectorAll("[data-pc]").forEach((b) => (b.onclick = () => {
-    if (Date.now() - heldAt < 800) return;   // 길게 누른 뒤 손 뗄 때 들어오는 누름은 무시
     if (palSlot >= 0 && b.closest(".palette")) { setPenColor(palSlot, b.dataset.pc); palSlot = -1; }
+    // 이미 고른 기본 색 칸을 한 번 더 누르기 → 그 칸 색 바꾸기 (또 누르면 닫힘)
+    else if (b.dataset.slot != null && b.getAttribute("aria-pressed") === "true") {
+      const i = Number(b.dataset.slot);
+      if (palSlot === i) { palSlot = -1; palOpen = false; } else { palSlot = i; palOpen = true; }
+      return rerender();
+    } else palSlot = -1;
     apply({ color: b.dataset.pc });
   }));
-  // 기본 색 칸 길게 누르기 → 그 칸 색 바꾸기
-  box.querySelectorAll("[data-slot]").forEach((b) => {
-    let t = null; const stop = () => clearTimeout(t);
-    b.addEventListener("pointerdown", () => { t = setTimeout(() => { heldAt = Date.now(); palSlot = Number(b.dataset.slot); palOpen = true; rerender(); }, 500); });
-    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => b.addEventListener(ev, stop));
-    b.addEventListener("contextmenu", (e) => e.preventDefault());
-  });
   const rs = box.querySelector("[data-slot-reset]");
   if (rs) rs.onclick = () => { const i = palSlot; setPenColor(i, null); palSlot = -1; apply({ color: PEN_COLORS[i][0] }); };
   box.querySelector("[data-pal]").onclick = () => { palOpen = !palOpen; palSlot = -1; rerender(); };
@@ -2202,6 +2200,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build fcc12a45af -->
+<!-- build eaee80cb8c -->
 </body>
 </html>
