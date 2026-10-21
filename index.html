@@ -271,7 +271,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "28d6d5d8b6"; window.DY_BUILT = "2026-10-21 13:48";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "1b395ddcdc"; window.DY_BUILT = "2026-10-21 13:55";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -509,6 +509,8 @@ function bumpPhoto(src, d) {
 }
 function curKey() { return S.pages[S.cur] ? S.pages[S.cur].key : null; }
 function floorOfPage(k) { return (S.proj && S.proj.floors[k]) || ""; }
+// 아이패드·맥 파일 이름은 한글이 자모로 쪼개져(NFD) 들어와 엑셀에서 "ㅅㅏㅇ"처럼 보임 → 합쳐서 씀
+const nfc = (v) => String(v ?? "").normalize("NFC");
 function floorOf(m) { return floorOfPage(m.pageKey); }
 function marksOn(k) { return live().filter((m) => m.pageKey === k).sort((a, b) => (a.no || 0) - (b.no || 0)); }
 function nextNo(floor, exceptPage) {
@@ -534,7 +536,7 @@ function mergeMarks(a, b) {
 }
 function buildPages() {
   S.pages = [];
-  for (const f of S.proj.files) for (let i = 0; i < (f.pageCount || 1); i++) S.pages.push({ fid: f.fid, i, key: `${f.fid}_${i}`, name: f.name });
+  for (const f of S.proj.files) for (let i = 0; i < (f.pageCount || 1); i++) S.pages.push({ fid: f.fid, i, key: `${f.fid}_${i}`, name: nfc(f.name) });
 }
 function metaOf(p) {
   return { id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt, files: p.files.map((f) => ({ fid: f.fid, name: f.name, type: f.type, mime: f.mime || "", pageCount: f.pageCount || 1, assetId: f.assetId || null })), floors: p.floors || {}, photoRanges: p.photoRanges || {}, prefs: p.prefs || {}, trashedAt: p.trashedAt || 0 };
@@ -712,12 +714,12 @@ async function addFiles(fileList) {
         const buf = new Uint8Array(await file.arrayBuffer());
         const pdf = await pdfjsLib.getDocument({ data: buf.slice(), isEvalSupported: false }).promise;
         await Local.putBlob(fid, new Blob([buf], { type: "application/pdf" }));
-        added.push({ fid, name: file.name, type: "pdf", mime: "application/pdf", pageCount: pdf.numPages });
+        added.push({ fid, name: nfc(file.name), type: "pdf", mime: "application/pdf", pageCount: pdf.numPages });
         pdf.destroy();
       } else {
         const { blob, mime } = await normalizeImage(file);
         await Local.putBlob(fid, blob);
-        added.push({ fid, name: file.name, type: "img", mime, pageCount: 1 });
+        added.push({ fid, name: nfc(file.name), type: "img", mime, pageCount: 1 });
       }
     } catch (e) { toast(`${file.name}: 열 수 없는 파일입니다`, 3500); }
   }
@@ -1973,7 +1975,7 @@ async function exportXlsx() {
   const marks = sortedRows().sort((a, b) => (fk(b) - fk(a)) || String(floorOf(a)).localeCompare(String(floorOf(b))) || ((a.no || 0) - (b.no || 0)));
   // 빈 값은 칸을 아예 안 만듦 (빈 글자가 들어가면 양식 물량 수식이 #VALUE!)
   const ws = {}, put = (ref, v) => (v.f || (v.v !== "" && v.v != null) ? (ws[ref] = v) : v);
-  const str = (v) => ({ t: "s", v: String(v ?? "") }), num = (v) => { const n = asNum(v); return typeof n === "number" ? { t: "n", v: n } : str(n); };
+  const str = (v) => ({ t: "s", v: nfc(v) }), num = (v) => { const n = asNum(v); return typeof n === "number" ? { t: "n", v: n } : str(n); };
   const note = (cell, t) => { cell.c = [{ a: "결함 야장", t }]; cell.c.hidden = true; return cell; };
   put("B2", str("※ B6부터 P열 끝까지 복사해서 양식 '외관조사 결과표' 6행에 붙여넣기 (Q·R열은 참고용, 복사 안 함)"));
   put("B3", str(`『${S.proj.name}』 외관조사 결과표`));
@@ -2150,7 +2152,7 @@ async function importJson(file) {
   // 다른 조사에서 온 경우 도면 파일 이름으로 맞춤
   const fidMap = new Map();
   for (const rf of data.project.files || []) {
-    const lf = sameProject ? p.files.find((f) => f.fid === rf.fid) : p.files.find((f) => f.name === rf.name && (f.pageCount || 1) === (rf.pageCount || 1));
+    const lf = sameProject ? p.files.find((f) => f.fid === rf.fid) : p.files.find((f) => nfc(f.name) === nfc(rf.name) && (f.pageCount || 1) === (rf.pageCount || 1));
     if (lf) fidMap.set(rf.fid, lf.fid);
   }
   let skipped = 0; const incoming = [], incomingN = [];
@@ -2254,6 +2256,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 28d6d5d8b6 -->
+<!-- build 1b395ddcdc -->
 </body>
 </html>
