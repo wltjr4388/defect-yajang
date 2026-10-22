@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "10b9f6ff3c"; window.DY_BUILT = "2026-10-22 11:23";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3c5628cf11"; window.DY_BUILT = "2026-10-22 11:52";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -414,9 +414,19 @@ const SITE_UTILS = [
   { key: "tel", name: "통신/전력", full: "통신/전력관", color: "#17a64a" },
   { key: "cctv", name: "CCTV 등", full: "CCTV등 각종 케이블", color: "#7a3fc2" },
 ];
-// 주변시설 이름별 기본 색 (계획서 예시: 횡단보도 파랑, 옹벽 분홍, 가공고압선 청록). 그 밖의 이름은 SITE_EXTRA에서 안 쓴 색
-const SITE_FACS = [["횡단보도", "#1f3fe0"], ["옹벽", "#e0197d"], ["가공고압선", "#14b0aa"], ["전신주", "#7a3fc2"], ["해체구간", "#d6332a"]];
-const SITE_EXTRA = ["#1f8a4c", "#8a5a00", "#e8a800", "#16202b"];
+// 주변시설: 이름마다 색과 모양 (계획서 예시: 횡단보도 파랑 네모, 옹벽 분홍 선, 가공고압선 청록 동그라미)
+// 모양 area = 범위(점선 네모, 대각선으로 끌기), line = 선형(따라 그리기), point = 동그라미(누르기). 그 밖의 이름은 SITE_EXTRA에서 안 쓴 색
+const SITE_FACS = [
+  { name: "횡단보도", color: "#1f3fe0", shape: "area" },
+  { name: "해체구간", color: "#d6332a", shape: "area" },
+  { name: "옹벽", color: "#e0197d", shape: "line" },
+  { name: "담장", color: "#8a5a00", shape: "line" },
+  { name: "가공고압선", color: "#14b0aa", shape: "point" },
+  { name: "전신주", color: "#7a3fc2", shape: "point" },
+];
+const FAC_SHAPES = [["area", "범위(네모)"], ["line", "선"], ["point", "동그라미"]];
+const FAC_SHAPE_SHORT = { area: "네모", line: "선", point: "○" };
+const SITE_EXTRA = ["#1f8a4c", "#e8a800", "#5a6573", "#16202b"];
 const SITE_ROAD = "#595959", SITE_INK = "#16202b";
 const ROAD_NOTES = ["보도포함", "보도없음"];
 function isSitePage(k) { return isEquip() && floorOfPage(k === undefined ? curKey() : k) === SITE_FLOOR; }
@@ -425,8 +435,14 @@ function siteOn(k) { return siteLive().filter((m) => m.pageKey === k); }
 function siteNextNo(sv) { let mx = 0; for (const m of siteLive()) if (m.sv === sv) mx = Math.max(mx, m.no || 0); return mx + 1; }
 function utilOf(m) { return SITE_UTILS.find((x) => x.key === m.utype) || SITE_UTILS[0]; }
 function siteColor(m) { return m.sv === "util" ? utilOf(m).color : m.sv === "road" ? SITE_ROAD : m.sv === "bldg" ? SITE_INK : m.color || SITE_INK; }
+// 직접 입력한 시설은 이름+모양으로 최근 5개 (이 태블릿, 모든 조사 공통)
+function customFacs() { try { const a = JSON.parse(localStorage.getItem("dy-site-facs")); return Array.isArray(a) ? a.filter((x) => x && typeof x.name === "string" && x.name && FAC_SHAPES.some(([k]) => k === x.shape)).slice(-5) : []; } catch (e) { return []; } }
+function addCustomFac(name, shape) { const a = customFacs().filter((x) => x.name !== name); a.push({ name, shape }); try { localStorage.setItem("dy-site-facs", JSON.stringify(a.slice(-5))); } catch (e) {} }
+function facList() { return [...SITE_FACS, ...customFacs().filter((c) => !SITE_FACS.some((f) => f.name === c.name))]; }
+function curFac() { return facList().find((f) => f.name === S.lastInput.fac) || SITE_FACS[0]; }
+function facShape(m) { return m.shape || "area"; }
 function facColorFor(name, exceptId) {
-  const d = SITE_FACS.find(([n]) => n === name); if (d) return d[1];
+  const d = SITE_FACS.find((f) => f.name === name); if (d) return d.color;
   const same = siteLive().find((m) => m.sv === "fac" && m.id !== exceptId && m.name === name && m.color); if (same) return same.color;
   const used = new Set(siteLive().filter((m) => m.sv === "fac" && m.id !== exceptId).map((m) => m.color));
   return SITE_EXTRA.find((c) => !used.has(c)) || SITE_EXTRA[0];
@@ -1189,8 +1205,15 @@ function renderBar() {
 }
 // 펜 도구일 때 도면 위쪽에 뜨는 펜 줄: 색 · 색상표 · 굵기 (지우개면 크기)
 function renderPenBar() {
-  const pb = $("#penbar"), on = S.tool === "pen" || S.tool === "eraser";
+  const pb = $("#penbar"), fac = S.tool === "s-fac" && isSitePage(), on = S.tool === "pen" || S.tool === "eraser" || fac;
   pb.hidden = !on; if (!on) return;
+  if (fac) {   // 시설 도구: 그릴 시설을 먼저 고름 (모양이 시설마다 다름)
+    const cur = curFac();
+    pb.innerHTML = `<div class="pb-row"><span class="pb-lab">시설</span>${facList().map((f) => `<button class="chip" data-fb="${esc(f.name)}" aria-pressed="${f.name === cur.name}"><span class="kdot" style="background:${f.color || facColorFor(f.name)}"></span>${esc(f.name)}<small style="color:var(--muted);margin-left:5px;font-weight:400">${FAC_SHAPE_SHORT[f.shape]}</small></button>`).join("")}<button class="chip add" data-fb-add>+ 직접</button></div>`;
+    pb.querySelectorAll("[data-fb]").forEach((b) => (b.onclick = () => { S.lastInput.fac = b.dataset.fb; renderPenBar(); showHint(); }));
+    pb.querySelector("[data-fb-add]").onclick = () => facCustomModal(null, (name, shape) => { if (!SITE_FACS.some((f) => f.name === name)) addCustomFac(name, shape); S.lastInput.fac = name; renderPenBar(); showHint(); });
+    return;
+  }
   if (S.tool === "eraser") {
     pb.innerHTML = `<div class="pb-row"><span class="pb-lab">지우개</span>${ERASER.map(([k2, nm, px]) => `<button class="pb-w pb-er" data-er="${k2}" aria-label="${nm}" aria-pressed="${eraserSize() === k2}"><i style="width:${px / 2 + 4}px;height:${px / 2 + 4}px"></i><b>${nm}</b></button>`).join("")}<span class="pb-lab">펜 메모만 지워집니다</span></div>`;
     pb.querySelectorAll("[data-er]").forEach((b) => (b.onclick = () => { S.proj.prefs.eraser = b.dataset.er; touch(null); renderPenBar(); }));
@@ -1210,7 +1233,7 @@ function renderPenBar() {
 function showHint() {
   const h = $("#hint");
   const msg = { lasso: "고를 표시를 둘러 그리세요 · 고른 뒤 안쪽을 끌면 같이 움직입니다", pan: "손가락으로 끌어서 이동, 두 손가락으로 확대", point: isEquip() ? "수평부재(보·슬래브) 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다" : "결함 위치를 누르세요 · 누른 채 끌면 번호가 따라갑니다", arrow: isEquip() ? "수직부재(기둥·벽체) 위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다" : "위치를 누르면 화살표 · 누른 채 끌면 번호가 따라갑니다", area: "영역을 대각선으로 끌어주세요", pen: "자유롭게 쓰거나 그리세요 · 색과 굵기는 위쪽 펜 줄에서 고릅니다", eraser: "펜 메모를 문질러 지웁니다 · 크기는 위쪽 줄에서 고릅니다",
-    "s-bldg": "인접건물 위치를 누르세요 · 번호가 1부터 붙습니다", "s-road": "도로 위를 누르면 ▼번호", "s-fac": "시설(횡단보도·옹벽 등)을 대각선으로 끌어 네모를 그립니다", "s-util": "매설물(맨홀·소화전 등) 위치를 누르세요", "s-dist": "두 지점 사이를 끌어서 이격거리 선을 긋습니다" }[S.tool];
+    "s-bldg": "인접건물 위치를 누르세요 · 번호가 1부터 붙습니다", "s-road": "도로 위를 누르면 ▼번호", "s-fac": { area: "대각선으로 끌어 네모를 그립니다", line: "선을 따라 그립니다", point: "위치를 누르면 동그라미" }[curFac().shape] + " · 시설은 위쪽 줄에서 고릅니다", "s-util": "매설물(맨홀·소화전 등) 위치를 누르세요", "s-dist": "두 지점 사이를 끌어서 이격거리 선을 긋습니다" }[S.tool];
   h.textContent = msg; h.hidden = false;
   clearTimeout(showHint.t); showHint.t = setTimeout(() => (h.hidden = true), 2200);
 }
@@ -1461,16 +1484,32 @@ const moveGeom = (g, dx, dy) => { const t = (q) => [q[0] + dx, q[1] + dy], o = {
 /* ---------- 주변조사 표시 그리기 ---------- */
 // 선택한 표시의 손잡이: 시설은 네 모서리, 이격거리는 양 끝 (점 표시는 통째로 끌어 옮김)
 function siteHandles(m) {
+  if (m.sv === "fac" && facShape(m) === "line") return m.pts.map((at, i) => ({ part: "v" + i, at }));
+  if (m.sv === "fac" && facShape(m) === "point") return [];
   if (m.sv === "fac") { const { x, y, w, h } = areaBox(m); return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map((at, i) => ({ part: "c" + i, at })); }
   if (m.sv === "dist") return [{ part: "p0", at: m.pts[0] }, { part: "p1", at: m.pts[1] }];
   return [];
 }
 // 이격거리 글자 자리: 선 가운데에서 위쪽(화면 기준)으로 비켜서
 function distLabelPos(m, u) {
+  if (m.lab) return m.lab;   // 글자를 끌어 옮긴 자리 (지시선으로 이어짐)
   const [a, b] = m.pts, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
   let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const d = Math.hypot(nx, ny) || 1; nx /= d; ny /= d;
   if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
   return [mx + nx * u * 1.1, my + ny * u * 1.1];
+}
+// 선분에서 점 q에 가장 가까운 자리
+function nearestOnSeg(q, a, b) {
+  const vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy, t = l2 ? clamp(((q[0] - a[0]) * vx + (q[1] - a[1]) * vy) / l2, 0, 1) : 0;
+  return [a[0] + t * vx, a[1] + t * vy];
+}
+// 이격거리 글자를 선에서 멀리 옮겼으면 지시선: [글자 쪽 끝, 선 쪽 끝], 가까우면 null
+function distLeader(m, u) {
+  if (!m.lab) return null;
+  const n = nearestOnSeg(m.lab, m.pts[0], m.pts[1]), d = Math.hypot(m.lab[0] - n[0], m.lab[1] - n[1]);
+  if (d < u * 2.2) return null;
+  const gap = u * 1.4;   // 글자 칸만큼 띄움
+  return [[m.lab[0] + (n[0] - m.lab[0]) / d * gap, m.lab[1] + (n[1] - m.lab[1]) / d * gap], n];
 }
 function arrowHead(tip, from, u, col) {
   const dx = tip[0] - from[0], dy = tip[1] - from[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, hl = u * 0.9, hw = u * 0.42;
@@ -1491,6 +1530,13 @@ function siteSVG(m, u, sel) {
     g += `<polygon points="${x - s},${y - s * 0.8} ${x + s},${y - s * 0.8} ${x},${y + s * 0.9}" fill="${c}" stroke="#fff" stroke-width="${u * 0.12}"/>`;
     g += `<text x="${x}" y="${cy + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="#fff">${esc(m.no)}</text>`;
     g += tag(x + s * 1.2, y + u * 0.2, [roadText(m), ph].filter(Boolean).join(" "));
+  } else if (m.sv === "fac" && facShape(m) === "line") {
+    g += `<polyline points="${m.pts.map((q) => q.join(",")).join(" ")}" fill="none" stroke="${c}" stroke-width="${u * 0.45}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    g += tag(m.pts[0][0] + u * 0.6, m.pts[0][1] - u * 0.6, [m.name || "이름?", ph].filter(Boolean).join(" "), c);
+  } else if (m.sv === "fac" && facShape(m) === "point") {
+    const [x, y] = m.pts[0];
+    g += `<circle cx="${x}" cy="${y}" r="${u * 0.75}" fill="${c}" stroke="#fff" stroke-width="${u * 0.14}"/>`;
+    g += tag(x + u * 1.05, y + u * 0.3, [m.name || "이름?", ph].filter(Boolean).join(" "), c);
   } else if (m.sv === "fac") {
     const { x, y, w, h } = areaBox(m);
     g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" fill-opacity="0.08" stroke="${c}" stroke-width="${u * 0.22}" stroke-dasharray="${u * 0.7} ${u * 0.4}"/>`;
@@ -1502,9 +1548,10 @@ function siteSVG(m, u, sel) {
   } else if (m.sv === "dist") {
     const [a, b] = m.pts, [lx, ly] = distLabelPos(m, u), fs = u * 1.05;
     g += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${u * 0.16}"/>` + arrowHead(a, b, u, c) + arrowHead(b, a, u, c);
+    const ld = distLeader(m, u); if (ld) g += `<line x1="${ld[0][0]}" y1="${ld[0][1]}" x2="${ld[1][0]}" y2="${ld[1][1]}" stroke="${c}" stroke-width="${u * 0.1}"/>`;
     g += `<text x="${lx}" y="${ly + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="${c}" ${halo}>${esc(m.val ? m.val + "m" : "?m")}</text>`;
   }
-  if (sel && (m.sv === "bldg" || m.sv === "road" || m.sv === "util")) { const [x, y] = m.pts[0]; g += `<circle cx="${x}" cy="${y}" r="${u * 1.6}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
+  if (sel && (m.sv === "bldg" || m.sv === "road" || m.sv === "util" || (m.sv === "fac" && facShape(m) === "point"))) { const [x, y] = m.pts[0]; g += `<circle cx="${x}" cy="${y}" r="${u * 1.6}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
   return g;
 }
 
@@ -1604,15 +1651,19 @@ function siteHit(p) {
   if (best) return best;
   for (const m of ms) {
     if (m.sv === "fac") {
-      if (S.tool === "s-dist") continue;   // 이격거리 도구면 시설 테두리·안쪽에서 시작해도 선을 그음 (시설은 손잡이로만)
+      if (S.tool === "s-dist") continue;   // 이격거리 도구면 시설 위에서 시작해도 선을 그음 (시설은 손잡이로만)
+      if (facShape(m) === "point") { const d = Math.hypot(m.pts[0][0] - p[0], m.pts[0][1] - p[1]); if (d < Math.max(u * 1.3, tol)) take(d, m.id, "body"); continue; }
+      if (facShape(m) === "line") { let d = Infinity; for (let i = 1; i < m.pts.length; i++) d = Math.min(d, segDist(p, m.pts[i - 1], m.pts[i])); if (d < tol) take(d + tol * 0.3, m.id, "body"); continue; }
       const { x, y, w, h } = areaBox(m), cs = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
       let d = Math.min(...cs.map((q, i) => segDist(p, q, cs[(i + 1) % 4])));
       const lab = [x + u, y - u * 0.7]; d = Math.min(d, Math.hypot(lab[0] - p[0], lab[1] - p[1]));
       if (d < tol) take(d + tol * 0.5, m.id, "body");
       else if (m.id === S.sel && p[0] >= x && p[0] <= x + w && p[1] >= y && p[1] <= y + h) take(tol, m.id, "body");
     } else if (m.sv === "dist") {
-      const lp = distLabelPos(m, u), d = Math.min(segDist(p, m.pts[0], m.pts[1]), Math.hypot(lp[0] - p[0], lp[1] - p[1]));
-      if (d < tol) take(d + tol * 0.3, m.id, "body");
+      // 글자를 잡으면 글자만 옮김 (선에서 떨어지면 지시선), 선을 잡으면 통째로
+      const lp = distLabelPos(m, u), dl = Math.hypot(lp[0] - p[0], lp[1] - p[1]), d = segDist(p, m.pts[0], m.pts[1]);
+      if (dl < Math.max(u * 1.2, tol)) take(dl, m.id, "label");
+      else if (d < tol) take(d + tol * 0.3, m.id, "body");
     } else {
       const d = Math.hypot(m.pts[0][0] - p[0], m.pts[0][1] - p[1]);
       if (d < Math.max(u * 1.3, tol)) take(d, m.id, "body");
@@ -1671,14 +1722,15 @@ vp.addEventListener("pointerdown", (e) => {
   const hit = siteHit(p) || hitTest(p);
   if (hit) {
     const it = findItem(hit.id);
-    gest = { kind: "move", target: hit.kind, id: hit.id, part: hit.part, start: p, orig: geomOf(it), origLab: hit.kind === "mark" && !it.sv ? labelPos(it, U()) : null, snap: snapshot(), moved: false };
+    gest = { kind: "move", target: hit.kind, id: hit.id, part: hit.part, start: p, orig: geomOf(it), origLab: hit.kind === "mark" ? (it.sv === "dist" ? distLabelPos(it, U()) : !it.sv ? labelPos(it, U()) : null) : null, snap: snapshot(), moved: false };
     selectItem(hit.id);
     return;
   }
   if (SITE_TOOLS.includes(S.tool) && !fingerOnly) {
     const sv = S.tool.slice(2);
     gest = { kind: "draw", tool: S.tool, start: p, cur: p };
-    draft = { sv, pts: sv === "fac" || sv === "dist" ? [p, p] : [p], utype: S.lastInput.utype, color: sv === "dist" ? SITE_INK : COL.sel };
+    const f = curFac(), mode = sv === "dist" || (sv === "fac" && f.shape === "area") ? "rect" : sv === "fac" && f.shape === "line" ? "path" : "pt";
+    draft = { sv, mode, pts: mode === "rect" ? [p, p] : [p], utype: S.lastInput.utype, name: f.name, shape: f.shape, color: COL.sel };
     renderOverlay();
   } else if (MARK_TOOLS.includes(S.tool) && !fingerOnly) {
     if (!floorOfPage(curKey())) { ptrs.clear(); floorModal(curKey()); return; }
@@ -1727,7 +1779,12 @@ vp.addEventListener("pointermove", (e) => {
   }
   if (gest.kind === "draw") {
     gest.cur = p;
-    if (draft && draft.sv) { draft.pts = draft.pts.length === 2 ? [gest.start, p] : [p]; renderOverlay(); return; }   // 점 표시는 손 뗀 자리에
+    if (draft && draft.sv) {   // 네모·이격거리는 시작~지금, 선은 지나간 자리, 점 표시는 손 뗀 자리에
+      if (draft.mode === "rect") draft.pts = [gest.start, p];
+      else if (draft.mode === "path") { if (screenDist(p, draft.pts[draft.pts.length - 1]) >= 3) draft.pts.push(p); }
+      else draft.pts = [p];
+      renderOverlay(); return;
+    }
     const short = screenDist(gest.start, p) < 14;
     if (gest.tool === "point") draft = short ? { type: "point", pts: [gest.start] } : { type: "point", pts: [gest.start], lab: p };
     else if (gest.tool === "arrow") draft = { type: "arrow", pts: [gest.start, short ? arrowTip(gest.start) : p] };
@@ -1750,6 +1807,8 @@ vp.addEventListener("pointermove", (e) => {
       it.pts = [add(o.pts[0]), ...o.pts.slice(1)];
     } else if (gest.part === "p1") {
       it.pts = [o.pts[0], add(o.pts[1])];
+    } else if (gest.part[0] === "v") {   // 선형 시설 꺾임점
+      const vi = Number(gest.part.slice(1)); it.pts = o.pts.map((q, j) => (j === vi ? add(q) : q));
     } else if (gest.part === "body") {
       it.pts = o.pts.map(add); if (o.lab) it.lab = add(o.lab);
     } else if (gest.part[0] === "c") {
@@ -1870,11 +1929,27 @@ vp.addEventListener("wheel", (e) => {
 
 // 화살표를 한 번만 찍었을 때 번호 자리 (오른쪽 위)
 function arrowTip(p) { const u = U(); return [p[0] + u * 3.5, p[1] - u * 3.5]; }
+// 따라 그린 선을 꺾임점 몇 개로 줄임 (Ramer–Douglas–Peucker)
+function simplifyPath(pts, tol) {
+  if (pts.length < 3) return pts.slice();
+  let mi = 0, md = 0;
+  for (let i = 1; i < pts.length - 1; i++) { const d = segDist(pts[i], pts[0], pts[pts.length - 1]); if (d > md) { md = d; mi = i; } }
+  if (md <= tol) return [pts[0], pts[pts.length - 1]];
+  return [...simplifyPath(pts.slice(0, mi + 1), tol).slice(0, -1), ...simplifyPath(pts.slice(mi), tol)];
+}
 function finishSite(g) {
+  const path = draft && draft.mode === "path" ? draft.pts : null;
   draft = null;
-  const sv = g.tool.slice(2), k = curKey(), L = S.lastInput;
+  const sv = g.tool.slice(2), k = curKey(), L = S.lastInput, f = curFac();
   let pts;
-  if (sv === "fac") {
+  if (sv === "fac" && f.shape === "line") {
+    let len = 0; for (let i = 1; i < path.length; i++) len += screenDist(path[i - 1], path[i]);
+    if (len < 14) { renderOverlay(); toast(`${f.name}은 선을 따라 그립니다`); return; }
+    const r1 = (v) => Math.round(v * 10) / 10;
+    pts = simplifyPath([...path, g.cur], 4 / (S.base * S.z)).map((q) => [r1(q[0]), r1(q[1])]);
+  } else if (sv === "fac" && f.shape === "point") {
+    pts = [g.cur];
+  } else if (sv === "fac") {
     const w = Math.abs(g.start[0] - g.cur[0]) * S.base * S.z, h = Math.abs(g.start[1] - g.cur[1]) * S.base * S.z;
     if (w < 12 || h < 12) { renderOverlay(); toast("시설은 대각선으로 끌어서 네모를 그립니다"); return; }
     pts = [g.start, g.cur];
@@ -1887,12 +1962,16 @@ function finishSite(g) {
   if (sv === "bldg" || sv === "road") m.no = siteNextNo(sv);
   if (sv === "bldg") m.name = "";
   if (sv === "road") { m.name = ""; m.width = ""; m.note = L.roadNote || ""; }
-  if (sv === "fac") { m.name = ""; m.color = ""; }
+  if (sv === "fac") { m.name = f.name; m.shape = f.shape; m.color = facColorFor(f.name); }
   if (sv === "util") m.utype = L.utype || SITE_UTILS[0].key;
   if (sv === "dist") {
     // 시설을 고른 채로(또는 시설 테두리에서 시작해) 그으면 그 시설 색
     const sf = selMark(), tol = 22 / (S.base * S.z);
-    const near = siteOn(k).find((f) => { if (f.sv !== "fac" || !f.color) return false; const b = areaBox(f); return g.start[0] >= b.x - tol && g.start[0] <= b.x + b.w + tol && g.start[1] >= b.y - tol && g.start[1] <= b.y + b.h + tol; });
+    const near = siteOn(k).find((f) => {
+      if (f.sv !== "fac" || !f.color) return false;
+      const xs = f.pts.map((q) => q[0]), ys = f.pts.map((q) => q[1]);   // 네모·선·동그라미 모두 점들의 둘레로
+      return g.start[0] >= Math.min(...xs) - tol && g.start[0] <= Math.max(...xs) + tol && g.start[1] >= Math.min(...ys) - tol && g.start[1] <= Math.max(...ys) + tol;
+    });
     m.color = (sf && sf.sv === "fac" && sf.color) || (near && near.color) || SITE_INK; m.val = "";
   }
   S.proj.marks.push(m);
@@ -2242,15 +2321,16 @@ function renderSitePanel(P, m) {
         <button class="btn pm" id="f-pp" aria-label="사진번호 하나 올리기">+</button>
         ${sugg && sugg !== m.photo ? `<button class="btn sugg" id="f-sugg">다음 ${esc(sugg)}</button>` : ""}
       </div></div>`;
-  const facList = [...SITE_FACS.map(([n]) => n), ...recentCustom("fac").filter((x) => !SITE_FACS.some(([n]) => n === x))];
-  const distColors = [...new Set([SITE_INK, ...siteLive().filter((x) => x.sv === "fac" && x.color).map((x) => x.color), ...SITE_FACS.map(([, c]) => c), ...SITE_EXTRA])];
+  const facNames = facList().filter((f) => f.shape === facShape(m)).map((f) => f.name);   // 같은 모양끼리만 바꿀 수 있음
+  const facColors = [...new Set([...SITE_FACS.map((f) => f.color), ...SITE_EXTRA])];
+  const distColors = [...new Set([SITE_INK, ...siteLive().filter((x) => x.sv === "fac" && x.color).map((x) => x.color), ...facColors])];
   let body = "";
   if (sv === "bldg") body = `<div class="fld sec"><span class="lab">이름 · 지번</span><input class="inp" data-sf="name" autocomplete="off" value="${esc(m.name)}" placeholder="예: 31-35"></div>`;
   if (sv === "road") body = `<div class="fld sec"><span class="lab">도로명</span><input class="inp" data-sf="name" autocomplete="off" value="${esc(m.name)}" placeholder="예: 동수로52번길"></div>
     <div class="fld sec"><span class="lab">폭 (m)</span><input class="inp num" data-sf="width" inputmode="decimal" autocomplete="off" value="${esc(m.width)}" placeholder="예: 9"></div>
     <div class="fld sec"><span class="lab">비고</span><div class="chips">${[...new Set([...ROAD_NOTES, ...(m.note && !ROAD_NOTES.includes(m.note) ? [m.note] : [])])].map((v) => `<button class="chip" data-note="${esc(v)}" aria-pressed="${m.note === v}">${esc(v)}</button>`).join("")}<button class="chip add" id="f-note-add">+ 직접</button></div></div>`;
-  if (sv === "fac") body = `<div class="fld sec"><span class="lab">시설</span><div class="chips">${[...new Set([...facList, ...(m.name && !facList.includes(m.name) ? [m.name] : [])])].map((v) => `<button class="chip" data-fac="${esc(v)}" aria-pressed="${m.name === v}">${esc(v)}</button>`).join("")}<button class="chip add" id="f-fac-add">+ 직접</button></div></div>
-    <div class="fld sec"><span class="lab">색 <span style="font-weight:500;color:var(--muted)">· 이격거리 선·사진 테두리와 같은 색</span></span>${siteSwatches(m.color, [...new Set([...SITE_FACS.map(([, c]) => c), ...SITE_EXTRA])])}</div>`;
+  if (sv === "fac") body = `<div class="fld sec"><span class="lab">시설 <span style="font-weight:500;color:var(--muted)">· ${esc((FAC_SHAPES.find(([k2]) => k2 === facShape(m)) || [])[1] || "")}</span></span><div class="chips">${[...new Set([...facNames, ...(m.name && !facNames.includes(m.name) ? [m.name] : [])])].map((v) => `<button class="chip" data-fac="${esc(v)}" aria-pressed="${m.name === v}">${esc(v)}</button>`).join("")}<button class="chip add" id="f-fac-add">+ 직접</button></div></div>
+    <div class="fld sec"><span class="lab">색 <span style="font-weight:500;color:var(--muted)">· 이격거리 선·사진 테두리와 같은 색</span></span>${siteSwatches(m.color, facColors)}</div>`;
   if (sv === "util") body = `<div class="fld sec"><span class="lab">매설물</span><div class="chips">${SITE_UTILS.map((x) => `<button class="chip" data-ut="${x.key}" aria-pressed="${m.utype === x.key}"><span class="kdot" style="background:${x.color}"></span>${esc(x.name)}</button>`).join("")}</div></div>`;
   if (sv === "dist") body = `<div class="fld sec"><span class="lab">거리 (m)</span><input class="inp num" id="sv-val" data-sf="val" inputmode="decimal" autocomplete="off" value="${esc(m.val)}" placeholder="예: 9"></div>
     <div class="fld sec"><span class="lab">색</span>${siteSwatches(m.color, distColors)}</div>`;
@@ -2276,7 +2356,7 @@ function renderSitePanel(P, m) {
   if ($("#f-note-add")) $("#f-note-add").onclick = () => customModal("비고 직접 입력", (v) => { pushUndo(); S.lastInput.roadNote = v; upd("note", v, true); });
   const setFac = (v) => { pushUndo(); const mm = selMark(); mm.color = facColorFor(v, mm.id); upd("name", v, true); };
   P.querySelectorAll("[data-fac]").forEach((b) => (b.onclick = () => setFac(b.dataset.fac)));
-  if ($("#f-fac-add")) $("#f-fac-add").onclick = () => customModal("시설 이름 직접 입력", (v) => { if (!SITE_FACS.some(([n]) => n === v)) addCustom("fac", v); setFac(v); });
+  if ($("#f-fac-add")) $("#f-fac-add").onclick = () => facCustomModal(facShape(m), (v, shape) => { if (!SITE_FACS.some((f) => f.name === v)) addCustomFac(v, shape); setFac(v); });
   P.querySelectorAll("[data-svc]").forEach((b) => (b.onclick = () => { pushUndo(); upd("color", b.dataset.svc, true); }));
   P.querySelectorAll("[data-ut]").forEach((b) => (b.onclick = () => { pushUndo(); S.lastInput.utype = b.dataset.ut; upd("utype", b.dataset.ut, true); }));
   if ($("#f-photo")) {
@@ -2297,6 +2377,18 @@ function renderSitePanel(P, m) {
     renderOverlay(); renderPanel();
     toast(`${siteTitle(mm)}을 지웠습니다 · 되돌리기로 살릴 수 있습니다`);
   };
+}
+// 시설 직접 입력: 이름 + 모양 (fixed가 있으면 그 모양으로만 — 이미 그린 시설 이름 바꿀 때)
+function facCustomModal(fixed, cb) {
+  let shape = fixed || "area";
+  openModal(`<h3>시설 직접 입력</h3>
+    <input class="inp" id="fc-in" autocomplete="off" placeholder="예: 가로수, 버스정류장">
+    ${fixed ? "" : `<div class="fld"><span class="lab">모양</span><div class="chips">${FAC_SHAPES.map(([k2, nm]) => `<button class="chip" data-fs="${k2}" aria-pressed="${k2 === shape}">${nm}</button>`).join("")}</div></div>`}
+    <div class="sheet-foot"><button class="btn ghost" data-close>취소</button><button class="btn primary" id="fc-ok">넣기</button></div>`);
+  const i = $("#fc-in"); setTimeout(() => i.focus(), 50);
+  document.querySelectorAll("[data-fs]").forEach((b) => (b.onclick = () => { shape = b.dataset.fs; document.querySelectorAll("[data-fs]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
+  const go = () => { const v = i.value.trim(); if (!v) return; closeModal(); cb(v, shape); };
+  $("#fc-ok").onclick = go; i.onkeydown = (e) => { if (e.key === "Enter") go(); };
 }
 // 인접건물·도로 번호 바꾸기: 같은 번호가 있으면 서로 바꿈
 function siteNumberModal(m) {
@@ -2336,9 +2428,9 @@ function renderSiteSummary(P) {
     <p class="help">
       <b>인접건물</b> 누르면 번호(1, 2…) · 이름·지번과 사진번호를 적습니다.<br>
       <b>도로</b> 누르면 ▼번호 · 도로명·폭·비고를 적습니다.<br>
-      <b>시설</b> 횡단보도·옹벽·가공고압선 등을 대각선으로 끌어 네모 · 시설마다 색이 정해집니다.<br>
+      <b>시설</b> 위쪽 줄에서 시설을 고른 뒤 그립니다 · 횡단보도·해체구간은 네모(대각선으로 끌기), 옹벽·담장은 선(따라 그리기), 가공고압선·전신주는 동그라미(누르기). 시설마다 색이 정해집니다.<br>
       <b>매설물</b> 상수·우수/오수·가스·통신·CCTV 위치를 누릅니다.<br>
-      <b>이격거리</b> 두 지점을 끌어 긋고 거리(m)를 적습니다. 시설을 고른 채로 그으면 그 시설 색이 됩니다.<br>
+      <b>이격거리</b> 두 지점을 끌어 긋고 거리(m)를 적습니다. 시설을 고른 채로 그으면 그 시설 색이 됩니다. 거리 글자를 끌어 옆으로 빼면 지시선이 이어집니다.<br>
       내보내기 → <b>주변현황 파워포인트</b>: 도면 위 표시가 파워포인트 도형으로 들어갑니다 (2장: 인접건축물·주변현황 / 지하매설물).
     </p>`;
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
@@ -2921,12 +3013,18 @@ async function exportSitePptx() {
     {
       const sl = newSlide("인접건축물 및 주변현황");
       for (const m of of("fac")) {
-        const b = areaBox(m);
-        sl.addShape(pptx.ShapeType.rect, { x: X(b.x), y: Y(b.y), w: b.w * k, h: b.h * k, line: { color: hex(m.color), width: 2.25, dashType: "dash" } });
+        const sh = facShape(m), c = hex(m.color);
+        if (sh === "area") { const b = areaBox(m); sl.addShape(pptx.ShapeType.rect, { x: X(b.x), y: Y(b.y), w: b.w * k, h: b.h * k, line: { color: c, width: 2.25, dashType: "dash" } }); }
+        else if (sh === "line") {   // 꺾인 선 = 자유형 도형 (점 좌표는 도형 왼쪽 위 기준 인치)
+          const xs = m.pts.map((q) => q[0]), ys = m.pts.map((q) => q[1]), mx = Math.min(...xs), my = Math.min(...ys);
+          sl.addShape(pptx.ShapeType.custGeom, { x: X(mx), y: Y(my), w: Math.max((Math.max(...xs) - mx) * k, 0.01), h: Math.max((Math.max(...ys) - my) * k, 0.01), points: m.pts.map((q) => ({ x: (q[0] - mx) * k, y: (q[1] - my) * k })), line: { color: c, width: 3.5 } });
+        }
       }
       for (const m of of("dist")) {
         const [a, b] = m.pts, c = hex(m.color);
         sl.addShape(pptx.ShapeType.line, { x: X(Math.min(a[0], b[0])), y: Y(Math.min(a[1], b[1])), w: Math.abs(a[0] - b[0]) * k, h: Math.abs(a[1] - b[1]) * k, flipH: (b[0] - a[0]) * (b[1] - a[1]) < 0, line: { color: c, width: 1.5, beginArrowType: "triangle", endArrowType: "triangle" } });
+        const ld = distLeader(m, u);
+        if (ld) { const [p0, p1] = ld; sl.addShape(pptx.ShapeType.line, { x: X(Math.min(p0[0], p1[0])), y: Y(Math.min(p0[1], p1[1])), w: Math.abs(p0[0] - p1[0]) * k, h: Math.abs(p0[1] - p1[1]) * k, flipH: (p1[0] - p0[0]) * (p1[1] - p0[1]) < 0, line: { color: c, width: 0.75 } }); }
         if (m.val) { const [lx, ly] = distLabelPos(m, u); textAt(sl, m.val + "m", X(lx), Y(ly), pt(u * 1.05, 9, 16), c, { glow }); }
       }
       for (const m of of("road")) {
@@ -2934,11 +3032,12 @@ async function exportSitePptx() {
         sl.addShape(pptx.ShapeType.triangle, { x: X(x - s), y: Y(y - s * 0.8), w: 2 * s * k, h: 1.7 * s * k, flipV: true, fill: { color: hex(SITE_ROAD) }, line: { color: "FFFFFF", width: 0.75 } });
         textAt(sl, m.no, X(x), Y(y - s * 0.3), pt(u * 0.9, 7, 14), "FFFFFF");
       }
+      for (const m of of("fac").filter((x) => facShape(x) === "point")) { const dd = u * 1.5 * k; sl.addShape(pptx.ShapeType.ellipse, { x: X(m.pts[0][0]) - dd / 2, y: Y(m.pts[0][1]) - dd / 2, w: dd, h: dd, fill: { color: hex(m.color) }, line: { color: "FFFFFF", width: 0.75 } }); }
       for (const m of of("bldg")) textAt(sl, m.no, X(m.pts[0][0]), Y(m.pts[0][1]), pt(u * 1.7, 12, 28), "000000", { glow });
       const runs = [];
       if (of("bldg").length) { runs.push(head("■ 인접건축물")); of("bldg").forEach((m) => runs.push(...line([[`${m.no}  `, { bold: true }], [`${m.name || ""}${m.photo ? `  #${m.photo}` : ""}${m.memo ? `  (${m.memo})` : ""}`]]))); }
       if (of("road").length) { runs.push(head("■ 도로")); of("road").forEach((m) => runs.push(...line([[`▼${m.no}  `, { bold: true, color: hex(SITE_ROAD) }], [`${roadText(m)}${m.photo ? `  #${m.photo}` : ""}${m.memo ? `  (${m.memo})` : ""}`]]))); }
-      if (of("fac").length) { runs.push(head("■ 주변시설")); of("fac").forEach((m) => runs.push(...line([["■ ", { color: hex(m.color) }], [`${m.name || "이름 없음"}${m.photo ? `  #${m.photo}` : ""}${m.memo ? `  (${m.memo})` : ""}`]]))); }
+      if (of("fac").length) { runs.push(head("■ 주변시설")); of("fac").forEach((m) => runs.push(...line([[{ area: "■ ", line: "━ ", point: "● " }[facShape(m)], { color: hex(m.color) }], [`${m.name || "이름 없음"}${m.photo ? `  #${m.photo}` : ""}${m.memo ? `  (${m.memo})` : ""}`]]))); }
       if (of("dist").length) { runs.push(head("■ 이격거리")); runs.push(...line([[of("dist").map((m) => (m.val ? m.val + "m" : "?m") + (m.memo ? `(${m.memo})` : "")).join(", ")]])); }
       if (runs.length) runs.push(note);
       side(sl, runs);
@@ -3239,6 +3338,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 10b9f6ff3c -->
+<!-- build 3c5628cf11 -->
 </body>
 </html>
