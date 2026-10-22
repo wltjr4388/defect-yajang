@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "3c5628cf11"; window.DY_BUILT = "2026-10-22 11:52";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "7ba7b50442"; window.DY_BUILT = "2026-10-22 12:00";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1498,15 +1498,10 @@ function distLabelPos(m, u) {
   if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
   return [mx + nx * u * 1.1, my + ny * u * 1.1];
 }
-// 선분에서 점 q에 가장 가까운 자리
-function nearestOnSeg(q, a, b) {
-  const vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy, t = l2 ? clamp(((q[0] - a[0]) * vx + (q[1] - a[1]) * vy) / l2, 0, 1) : 0;
-  return [a[0] + t * vx, a[1] + t * vy];
-}
-// 이격거리 글자를 선에서 멀리 옮겼으면 지시선: [글자 쪽 끝, 선 쪽 끝], 가까우면 null
+// 이격거리 글자를 선에서 멀리 옮겼으면 지시선(선 가운데에서 글자까지): [글자 쪽 끝, 선 가운데], 가까우면 null
 function distLeader(m, u) {
   if (!m.lab) return null;
-  const n = nearestOnSeg(m.lab, m.pts[0], m.pts[1]), d = Math.hypot(m.lab[0] - n[0], m.lab[1] - n[1]);
+  const n = [(m.pts[0][0] + m.pts[1][0]) / 2, (m.pts[0][1] + m.pts[1][1]) / 2], d = Math.hypot(m.lab[0] - n[0], m.lab[1] - n[1]);
   if (d < u * 2.2) return null;
   const gap = u * 1.4;   // 글자 칸만큼 띄움
   return [[m.lab[0] + (n[0] - m.lab[0]) / d * gap, m.lab[1] + (n[1] - m.lab[1]) / d * gap], n];
@@ -3338,6 +3333,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 3c5628cf11 -->
+<!-- build 7ba7b50442 -->
 </body>
 </html>
