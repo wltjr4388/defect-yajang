@@ -19,6 +19,7 @@ VENDOR = {
     "pdf.worker.min.js": "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
     "pdf-lib.min.js": "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js",
     "xlsx.full.min.js": "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+    "pptxgen.bundle.js": "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js",
 }
 
 HEAD = """<!doctype html>
@@ -89,6 +90,8 @@ def build_html(version, built):
     src = src.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>\n', "")
     src = src.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>', '<script src="vendor/pdf-lib.min.js"></script>')
     src = src.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>', '<script src="vendor/xlsx.full.min.js"></script>')
+    src = src.replace('<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>', '<script src="vendor/pptxgen.bundle.js"></script>')
+    assert "cdn.jsdelivr.net" not in src, "pptxgenjs CDN 치환 실패"
     assert "cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js\"" not in src, "CDN 스크립트 치환 실패"
     sw = f"""
 <script>
