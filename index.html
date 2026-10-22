@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "d710d07467"; window.DY_BUILT = "2026-10-22 13:53";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "954db38ec4"; window.DY_BUILT = "2026-10-22 14:27";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -1520,7 +1520,7 @@ function distLeader(m, u) {
   return [[m.lab[0] + (n[0] - m.lab[0]) / d * gap, m.lab[1] + (n[1] - m.lab[1]) / d * gap], n];
 }
 function arrowHead(tip, from, u, col) {
-  const dx = tip[0] - from[0], dy = tip[1] - from[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, hl = u * 0.95, hw = u * 0.7;
+  const dx = tip[0] - from[0], dy = tip[1] - from[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, hl = u * 0.65, hw = u * 0.48;
   const bx = tip[0] - ux * hl, by = tip[1] - uy * hl;
   return `<polyline points="${bx - uy * hw},${by + ux * hw} ${tip[0]},${tip[1]} ${bx + uy * hw},${by - ux * hw}" fill="none" stroke="${col}" stroke-width="${u * 0.3}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
@@ -3013,6 +3013,8 @@ async function exportSitePptx() {
   const pptx = new PptxGenJS(); pptx.layout = "LAYOUT_WIDE";   // 13.33 × 7.5 in
   const FONT = "맑은 고딕", hex = (c) => String(c || SITE_INK).replace("#", "").toUpperCase();
   const noLine = { type: "none" };
+  // 화살촉 작게: PptxGenJS에 크기 옵션이 없어 type 글자 뒤에 w·len(작게)을 붙여 넣음 → <a:headEnd type="arrow" w="sm" len="sm"/>
+  const SMALL_ARROW = 'arrow" w="sm" len="sm';
   for (const key of keys) {
     const pg = S.pages.find((p) => p.key === key), img = await pageImage(pg), ms = siteOn(key);
     const W = img.W, H = img.H, u = unitFor(W, H);
@@ -3046,7 +3048,7 @@ async function exportSitePptx() {
       }
       for (const m of of("dist")) {
         const [a, b] = m.pts, c = hex(m.color);
-        sl.addShape(pptx.ShapeType.line, { x: X(Math.min(a[0], b[0])), y: Y(Math.min(a[1], b[1])), w: Math.abs(a[0] - b[0]) * k, h: Math.abs(a[1] - b[1]) * k, flipH: (b[0] - a[0]) * (b[1] - a[1]) < 0, line: { color: c, width: 3, beginArrowType: "arrow", endArrowType: "arrow" } });
+        sl.addShape(pptx.ShapeType.line, { x: X(Math.min(a[0], b[0])), y: Y(Math.min(a[1], b[1])), w: Math.abs(a[0] - b[0]) * k, h: Math.abs(a[1] - b[1]) * k, flipH: (b[0] - a[0]) * (b[1] - a[1]) < 0, line: { color: c, width: 3, beginArrowType: SMALL_ARROW, endArrowType: SMALL_ARROW } });
         const ld = distLeader(m, u);
         if (ld) { const [p0, p1] = ld; sl.addShape(pptx.ShapeType.line, { x: X(Math.min(p0[0], p1[0])), y: Y(Math.min(p0[1], p1[1])), w: Math.abs(p0[0] - p1[0]) * k, h: Math.abs(p0[1] - p1[1]) * k, flipH: (p1[0] - p0[0]) * (p1[1] - p0[1]) < 0, line: { color: c, width: 0.75 } }); }
         if (m.val) { const [lx, ly] = distLabelPos(m, u); textAt(sl, m.val + "m", X(lx), Y(ly), pt(u * 1.05, 9, 16), c); }
@@ -3362,6 +3364,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build d710d07467 -->
+<!-- build 954db38ec4 -->
 </body>
 </html>
