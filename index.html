@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "7ba7b50442"; window.DY_BUILT = "2026-10-22 12:00";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "d710d07467"; window.DY_BUILT = "2026-10-22 13:53";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -417,7 +417,7 @@ const SITE_UTILS = [
 // 주변시설: 이름마다 색과 모양 (계획서 예시: 횡단보도 파랑 네모, 옹벽 분홍 선, 가공고압선 청록 동그라미)
 // 모양 area = 범위(점선 네모, 대각선으로 끌기), line = 선형(따라 그리기), point = 동그라미(누르기). 그 밖의 이름은 SITE_EXTRA에서 안 쓴 색
 const SITE_FACS = [
-  { name: "횡단보도", color: "#1f3fe0", shape: "area" },
+  { name: "횡단보도", color: "#0000e0", shape: "area" },
   { name: "해체구간", color: "#d6332a", shape: "area" },
   { name: "옹벽", color: "#e0197d", shape: "line" },
   { name: "담장", color: "#8a5a00", shape: "line" },
@@ -1482,11 +1482,24 @@ function lassoPick(poly) {
 const moveGeom = (g, dx, dy) => { const t = (q) => [q[0] + dx, q[1] + dy], o = {}; if (g.pts) o.pts = g.pts.map(t); if (g.at) o.at = t(g.at); if (g.lab) o.lab = t(g.lab); return o; };
 
 /* ---------- 주변조사 표시 그리기 ---------- */
-// 선택한 표시의 손잡이: 시설은 네 모서리, 이격거리는 양 끝 (점 표시는 통째로 끌어 옮김)
+// 돌린 네모: pts는 돌리기 전 네모, rot(도, 시계방향)는 네모 가운데 기준
+const rotP = (q, c, deg) => { const r = deg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), dx = q[0] - c[0], dy = q[1] - c[1]; return [c[0] + dx * cs - dy * sn, c[1] + dx * sn + dy * cs]; };
+const boxCenter = (b) => [b.x + b.w / 2, b.y + b.h / 2];
+const normDeg = (a) => { a = ((a % 360) + 540) % 360 - 180; return a === -180 ? 180 : a; };
+// 네 모서리 (왼위·오위·왼아래·오아래 순서, 돌린 뒤 자리)
+function areaCorners(m) { const b = areaBox(m), c = boxCenter(b); return [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map((q) => rotP(q, c, m.rot || 0)); }
+// 회전 손잡이: 윗변 가운데에서 위로
+function rotHandleAt(m, u) { const b = areaBox(m); return rotP([b.x + b.w / 2, b.y - u * 2.2], boxCenter(b), m.rot || 0); }
+// 시설 이름 글자 자리: 돌렸으면 제일 위 모서리 위
+function facTagPos(m, u) {
+  const top = areaCorners(m).reduce((a, q) => (q[1] < a[1] ? q : a));
+  return [top[0], top[1] - u * 0.45];
+}
+// 선택한 표시의 손잡이: 시설은 네 모서리 + 회전, 이격거리는 양 끝 (점 표시는 통째로 끌어 옮김)
 function siteHandles(m) {
   if (m.sv === "fac" && facShape(m) === "line") return m.pts.map((at, i) => ({ part: "v" + i, at }));
   if (m.sv === "fac" && facShape(m) === "point") return [];
-  if (m.sv === "fac") { const { x, y, w, h } = areaBox(m); return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map((at, i) => ({ part: "c" + i, at })); }
+  if (m.sv === "fac") return [...areaCorners(m).map((at, i) => ({ part: "c" + i, at })), { part: "rot", at: rotHandleAt(m, U()) }];
   if (m.sv === "dist") return [{ part: "p0", at: m.pts[0] }, { part: "p1", at: m.pts[1] }];
   return [];
 }
@@ -1507,9 +1520,9 @@ function distLeader(m, u) {
   return [[m.lab[0] + (n[0] - m.lab[0]) / d * gap, m.lab[1] + (n[1] - m.lab[1]) / d * gap], n];
 }
 function arrowHead(tip, from, u, col) {
-  const dx = tip[0] - from[0], dy = tip[1] - from[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, hl = u * 0.9, hw = u * 0.42;
+  const dx = tip[0] - from[0], dy = tip[1] - from[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, hl = u * 0.95, hw = u * 0.7;
   const bx = tip[0] - ux * hl, by = tip[1] - uy * hl;
-  return `<polygon points="${tip[0]},${tip[1]} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${col}"/>`;
+  return `<polyline points="${bx - uy * hw},${by + ux * hw} ${tip[0]},${tip[1]} ${bx + uy * hw},${by - ux * hw}" fill="none" stroke="${col}" stroke-width="${u * 0.3}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 function siteSVG(m, u, sel) {
   const c = sel ? COL.sel : siteColor(m), halo = `stroke="#fff" stroke-width="${u * 0.28}" paint-order="stroke" stroke-linejoin="round"`;
@@ -1518,11 +1531,11 @@ function siteSVG(m, u, sel) {
   let g = "";
   if (m.sv === "bldg") {
     const [x, y] = m.pts[0], fs = u * 1.7;
-    g += `<text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" font-weight="800" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="${c}" ${halo}>${esc(m.no)}</text>`;
+    g += `<text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" font-weight="800" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="${c}">${esc(m.no)}</text>`;
     g += tag(x + fs * 0.5, y + fs * 0.95, [m.name, ph].filter(Boolean).join(" "));
   } else if (m.sv === "road") {
     const [x, y] = m.pts[0], s = u * 1.05, fs = u * 0.9, cy = y - s * 0.233;
-    g += `<polygon points="${x - s},${y - s * 0.8} ${x + s},${y - s * 0.8} ${x},${y + s * 0.9}" fill="${c}" stroke="#fff" stroke-width="${u * 0.12}"/>`;
+    g += `<polygon points="${x - s},${y - s * 0.8} ${x + s},${y - s * 0.8} ${x},${y + s * 0.9}" fill="${c}"/>`;
     g += `<text x="${x}" y="${cy + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="#fff">${esc(m.no)}</text>`;
     g += tag(x + s * 1.2, y + u * 0.2, [roadText(m), ph].filter(Boolean).join(" "));
   } else if (m.sv === "fac" && facShape(m) === "line") {
@@ -1530,21 +1543,22 @@ function siteSVG(m, u, sel) {
     g += tag(m.pts[0][0] + u * 0.6, m.pts[0][1] - u * 0.6, [m.name || "이름?", ph].filter(Boolean).join(" "), c);
   } else if (m.sv === "fac" && facShape(m) === "point") {
     const [x, y] = m.pts[0];
-    g += `<circle cx="${x}" cy="${y}" r="${u * 0.75}" fill="${c}" stroke="#fff" stroke-width="${u * 0.14}"/>`;
+    g += `<circle cx="${x}" cy="${y}" r="${u * 0.75}" fill="${c}"/>`;
     g += tag(x + u * 1.05, y + u * 0.3, [m.name || "이름?", ph].filter(Boolean).join(" "), c);
   } else if (m.sv === "fac") {
-    const { x, y, w, h } = areaBox(m);
-    g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" fill-opacity="0.08" stroke="${c}" stroke-width="${u * 0.22}" stroke-dasharray="${u * 0.7} ${u * 0.4}"/>`;
-    g += tag(x, y - u * 0.45, [m.name || "이름?", ph].filter(Boolean).join(" "), c);
+    const b = areaBox(m), { x, y, w, h } = b, [cx, cy] = boxCenter(b), tp = facTagPos(m, u);
+    g += `<rect x="${x}" y="${y}" width="${w}" height="${h}"${m.rot ? ` transform="rotate(${m.rot} ${cx} ${cy})"` : ""} fill="${c}" fill-opacity="0.08" stroke="${c}" stroke-width="${u * 0.22}" stroke-dasharray="${u * 0.7} ${u * 0.4}"/>`;
+    g += tag(tp[0], tp[1], [m.name || "이름?", ph].filter(Boolean).join(" "), c);
+    if (sel) { const top = rotP([cx, y], [cx, cy], m.rot || 0), rh = rotHandleAt(m, u); g += `<line x1="${top[0]}" y1="${top[1]}" x2="${rh[0]}" y2="${rh[1]}" stroke="${COL.sel}" stroke-width="${u * 0.1}"/>`; }
   } else if (m.sv === "util") {
     const [x, y] = m.pts[0];
-    g += `<circle cx="${x}" cy="${y}" r="${u * 0.6}" fill="${c}" stroke="#fff" stroke-width="${u * 0.14}"/>`;
+    g += `<circle cx="${x}" cy="${y}" r="${u * 0.6}" fill="${c}"/>`;
     g += tag(x + u * 0.9, y + u * 0.3, ph);
   } else if (m.sv === "dist") {
     const [a, b] = m.pts, [lx, ly] = distLabelPos(m, u), fs = u * 1.05;
-    g += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${u * 0.16}"/>` + arrowHead(a, b, u, c) + arrowHead(b, a, u, c);
+    g += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${u * 0.3}" stroke-linecap="round"/>` + arrowHead(a, b, u, c) + arrowHead(b, a, u, c);
     const ld = distLeader(m, u); if (ld) g += `<line x1="${ld[0][0]}" y1="${ld[0][1]}" x2="${ld[1][0]}" y2="${ld[1][1]}" stroke="${c}" stroke-width="${u * 0.1}"/>`;
-    g += `<text x="${lx}" y="${ly + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="${c}" ${halo}>${esc(m.val ? m.val + "m" : "?m")}</text>`;
+    g += `<text x="${lx}" y="${ly + fs * 0.36}" font-size="${fs}" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="${c}">${esc(m.val ? m.val + "m" : "?m")}</text>`;
   }
   if (sel && (m.sv === "bldg" || m.sv === "road" || m.sv === "util" || (m.sv === "fac" && facShape(m) === "point"))) { const [x, y] = m.pts[0]; g += `<circle cx="${x}" cy="${y}" r="${u * 1.6}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
   return g;
@@ -1649,11 +1663,11 @@ function siteHit(p) {
       if (S.tool === "s-dist") continue;   // 이격거리 도구면 시설 위에서 시작해도 선을 그음 (시설은 손잡이로만)
       if (facShape(m) === "point") { const d = Math.hypot(m.pts[0][0] - p[0], m.pts[0][1] - p[1]); if (d < Math.max(u * 1.3, tol)) take(d, m.id, "body"); continue; }
       if (facShape(m) === "line") { let d = Infinity; for (let i = 1; i < m.pts.length; i++) d = Math.min(d, segDist(p, m.pts[i - 1], m.pts[i])); if (d < tol) take(d + tol * 0.3, m.id, "body"); continue; }
-      const { x, y, w, h } = areaBox(m), cs = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
-      let d = Math.min(...cs.map((q, i) => segDist(p, q, cs[(i + 1) % 4])));
-      const lab = [x + u, y - u * 0.7]; d = Math.min(d, Math.hypot(lab[0] - p[0], lab[1] - p[1]));
+      const b = areaBox(m), { x, y, w, h } = b, q0 = rotP(p, boxCenter(b), -(m.rot || 0)), cs = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+      let d = Math.min(...cs.map((q, i) => segDist(q0, q, cs[(i + 1) % 4])));
+      const tp = facTagPos(m, u), lab = [tp[0] + u, tp[1] - u * 0.25]; d = Math.min(d, Math.hypot(lab[0] - p[0], lab[1] - p[1]));
       if (d < tol) take(d + tol * 0.5, m.id, "body");
-      else if (m.id === S.sel && p[0] >= x && p[0] <= x + w && p[1] >= y && p[1] <= y + h) take(tol, m.id, "body");
+      else if (m.id === S.sel && q0[0] >= x && q0[0] <= x + w && q0[1] >= y && q0[1] <= y + h) take(tol, m.id, "body");
     } else if (m.sv === "dist") {
       // 글자를 잡으면 글자만 옮김 (선에서 떨어지면 지시선), 선을 잡으면 통째로
       const lp = distLabelPos(m, u), dl = Math.hypot(lp[0] - p[0], lp[1] - p[1]), d = segDist(p, m.pts[0], m.pts[1]);
@@ -1717,7 +1731,7 @@ vp.addEventListener("pointerdown", (e) => {
   const hit = siteHit(p) || hitTest(p);
   if (hit) {
     const it = findItem(hit.id);
-    gest = { kind: "move", target: hit.kind, id: hit.id, part: hit.part, start: p, orig: geomOf(it), origLab: hit.kind === "mark" ? (it.sv === "dist" ? distLabelPos(it, U()) : !it.sv ? labelPos(it, U()) : null) : null, snap: snapshot(), moved: false };
+    gest = { kind: "move", target: hit.kind, id: hit.id, part: hit.part, start: p, orig: geomOf(it), origLab: hit.kind === "mark" ? (it.sv === "dist" ? distLabelPos(it, U()) : !it.sv ? labelPos(it, U()) : null) : null, origRot: it.rot || 0, snap: snapshot(), moved: false };
     selectItem(hit.id);
     return;
   }
@@ -1806,11 +1820,20 @@ vp.addEventListener("pointermove", (e) => {
       const vi = Number(gest.part.slice(1)); it.pts = o.pts.map((q, j) => (j === vi ? add(q) : q));
     } else if (gest.part === "body") {
       it.pts = o.pts.map(add); if (o.lab) it.lab = add(o.lab);
+    } else if (gest.part === "rot") {
+      // 회전: 네모 가운데를 축으로 손잡이 방향, 0·90·180·270° 근처면 딱 맞춤
+      const c = boxCenter(areaBox({ pts: o.pts }));
+      let a = normDeg(Math.atan2(p[1] - c[1], p[0] - c[0]) * 180 / Math.PI + 90);
+      const sn = Math.round(a / 90) * 90; a = normDeg(Math.abs(a - sn) < 4 ? sn : Math.round(a));
+      if (a) it.rot = a; else delete it.rot;
     } else if (gest.part[0] === "c") {
-      // 모서리 끌기: 반대쪽 모서리는 그대로
-      const b = areaBox({ pts: o.pts }), i = Number(gest.part[1]);
-      const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]];
-      it.pts = [corners[3 - i], add(corners[i])];
+      // 모서리 끌기: 반대쪽 모서리는 그대로 (돌린 네모도 반대쪽 모서리 자리 고정)
+      const r = gest.origRot, i = Number(gest.part[1]), cs = areaCorners({ pts: o.pts, rot: r });
+      if (!r) it.pts = [cs[3 - i], add(cs[i])];
+      else {
+        const O = cs[3 - i], P2 = add(cs[i]), ctr = [(O[0] + P2[0]) / 2, (O[1] + P2[1]) / 2], hv = rotP([(P2[0] - O[0]) / 2, (P2[1] - O[1]) / 2], [0, 0], -r);
+        it.pts = [[ctr[0] - hv[0], ctr[1] - hv[1]], [ctr[0] + hv[0], ctr[1] + hv[1]]];
+      }
     }
     renderOverlay();
   }
@@ -1866,7 +1889,7 @@ function swipePage(dx, dy, dt) {
   if (to < 0 || to >= S.pages.length) { back(); toast(to < 0 ? "첫 도면입니다" : "마지막 도면입니다"); return; }
   showPage(to).then(() => { const pg = S.pages[S.cur]; toast(`${S.cur + 1}/${S.pages.length} · ${pg.name}`); });
 }
-function restoreMove() { const it = findItem(gest.id); if (it) setGeom(it, gest.orig); }
+function restoreMove() { const it = findItem(gest.id); if (it) { setGeom(it, gest.orig); if (gest.part === "rot") { if (gest.origRot) it.rot = gest.origRot; else delete it.rot; } } }
 function endPointer(e) {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
@@ -1909,6 +1932,7 @@ function endPointer(e) {
       pushUndo(g.snap); it.updatedAt = now(); touch(it.pageKey);
     }
     renderOverlay();
+    if (g.part === "rot") renderPanel();   // 입력창의 각도 글자 새로
   }
 }
 vp.addEventListener("pointerup", endPointer);
@@ -2325,7 +2349,8 @@ function renderSitePanel(P, m) {
     <div class="fld sec"><span class="lab">폭 (m)</span><input class="inp num" data-sf="width" inputmode="decimal" autocomplete="off" value="${esc(m.width)}" placeholder="예: 9"></div>
     <div class="fld sec"><span class="lab">비고</span><div class="chips">${[...new Set([...ROAD_NOTES, ...(m.note && !ROAD_NOTES.includes(m.note) ? [m.note] : [])])].map((v) => `<button class="chip" data-note="${esc(v)}" aria-pressed="${m.note === v}">${esc(v)}</button>`).join("")}<button class="chip add" id="f-note-add">+ 직접</button></div></div>`;
   if (sv === "fac") body = `<div class="fld sec"><span class="lab">시설 <span style="font-weight:500;color:var(--muted)">· ${esc((FAC_SHAPES.find(([k2]) => k2 === facShape(m)) || [])[1] || "")}</span></span><div class="chips">${[...new Set([...facNames, ...(m.name && !facNames.includes(m.name) ? [m.name] : [])])].map((v) => `<button class="chip" data-fac="${esc(v)}" aria-pressed="${m.name === v}">${esc(v)}</button>`).join("")}<button class="chip add" id="f-fac-add">+ 직접</button></div></div>
-    <div class="fld sec"><span class="lab">색 <span style="font-weight:500;color:var(--muted)">· 이격거리 선·사진 테두리와 같은 색</span></span>${siteSwatches(m.color, facColors)}</div>`;
+    <div class="fld sec"><span class="lab">색 <span style="font-weight:500;color:var(--muted)">· 이격거리 선·사진 테두리와 같은 색</span></span>${siteSwatches(m.color, facColors)}</div>${facShape(m) === "area" ? `
+    <div class="fld sec"><span class="lab">회전 <span style="font-weight:500;color:var(--muted)">· ${Math.round(m.rot || 0)}° · 위쪽 동그라미 손잡이를 끌어도 됨</span></span><div class="chips"><button class="chip" data-rot="-15">↺ 15°</button><button class="chip" data-rot="-1">↺ 1°</button><button class="chip" data-rot="0">0°</button><button class="chip" data-rot="1">↻ 1°</button><button class="chip" data-rot="15">↻ 15°</button></div></div>` : ""}`;
   if (sv === "util") body = `<div class="fld sec"><span class="lab">매설물</span><div class="chips">${SITE_UTILS.map((x) => `<button class="chip" data-ut="${x.key}" aria-pressed="${m.utype === x.key}"><span class="kdot" style="background:${x.color}"></span>${esc(x.name)}</button>`).join("")}</div></div>`;
   if (sv === "dist") body = `<div class="fld sec"><span class="lab">거리 (m)</span><input class="inp num" id="sv-val" data-sf="val" inputmode="decimal" autocomplete="off" value="${esc(m.val)}" placeholder="예: 9"></div>
     <div class="fld sec"><span class="lab">색</span>${siteSwatches(m.color, distColors)}</div>`;
@@ -2352,6 +2377,10 @@ function renderSitePanel(P, m) {
   const setFac = (v) => { pushUndo(); const mm = selMark(); mm.color = facColorFor(v, mm.id); upd("name", v, true); };
   P.querySelectorAll("[data-fac]").forEach((b) => (b.onclick = () => setFac(b.dataset.fac)));
   if ($("#f-fac-add")) $("#f-fac-add").onclick = () => facCustomModal(facShape(m), (v, shape) => { if (!SITE_FACS.some((f) => f.name === v)) addCustomFac(v, shape); setFac(v); });
+  P.querySelectorAll("[data-rot]").forEach((b) => (b.onclick = () => {
+    pushUndo(); const d = Number(b.dataset.rot), mm = selMark(), a = d ? normDeg((mm.rot || 0) + d) : 0;
+    upd("rot", a, true); if (!a) delete mm.rot;
+  }));
   P.querySelectorAll("[data-svc]").forEach((b) => (b.onclick = () => { pushUndo(); upd("color", b.dataset.svc, true); }));
   P.querySelectorAll("[data-ut]").forEach((b) => (b.onclick = () => { pushUndo(); S.lastInput.utype = b.dataset.ut; upd("utype", b.dataset.ut, true); }));
   if ($("#f-photo")) {
@@ -2983,7 +3012,7 @@ async function exportSitePptx() {
   if (!keys.length) throw new Error("배치도 도면이 없습니다");
   const pptx = new PptxGenJS(); pptx.layout = "LAYOUT_WIDE";   // 13.33 × 7.5 in
   const FONT = "맑은 고딕", hex = (c) => String(c || SITE_INK).replace("#", "").toUpperCase();
-  const glow = { size: 3, opacity: 0.95, color: "FFFFFF" };
+  const noLine = { type: "none" };
   for (const key of keys) {
     const pg = S.pages.find((p) => p.key === key), img = await pageImage(pg), ms = siteOn(key);
     const W = img.W, H = img.H, u = unitFor(W, H);
@@ -3009,7 +3038,7 @@ async function exportSitePptx() {
       const sl = newSlide("인접건축물 및 주변현황");
       for (const m of of("fac")) {
         const sh = facShape(m), c = hex(m.color);
-        if (sh === "area") { const b = areaBox(m); sl.addShape(pptx.ShapeType.rect, { x: X(b.x), y: Y(b.y), w: b.w * k, h: b.h * k, line: { color: c, width: 2.25, dashType: "dash" } }); }
+        if (sh === "area") { const b = areaBox(m); sl.addShape(pptx.ShapeType.rect, { x: X(b.x), y: Y(b.y), w: b.w * k, h: b.h * k, rotate: m.rot || 0, line: { color: c, width: 2.25, dashType: "dash" } }); }
         else if (sh === "line") {   // 꺾인 선 = 자유형 도형 (점 좌표는 도형 왼쪽 위 기준 인치)
           const xs = m.pts.map((q) => q[0]), ys = m.pts.map((q) => q[1]), mx = Math.min(...xs), my = Math.min(...ys);
           sl.addShape(pptx.ShapeType.custGeom, { x: X(mx), y: Y(my), w: Math.max((Math.max(...xs) - mx) * k, 0.01), h: Math.max((Math.max(...ys) - my) * k, 0.01), points: m.pts.map((q) => ({ x: (q[0] - mx) * k, y: (q[1] - my) * k })), line: { color: c, width: 3.5 } });
@@ -3017,18 +3046,18 @@ async function exportSitePptx() {
       }
       for (const m of of("dist")) {
         const [a, b] = m.pts, c = hex(m.color);
-        sl.addShape(pptx.ShapeType.line, { x: X(Math.min(a[0], b[0])), y: Y(Math.min(a[1], b[1])), w: Math.abs(a[0] - b[0]) * k, h: Math.abs(a[1] - b[1]) * k, flipH: (b[0] - a[0]) * (b[1] - a[1]) < 0, line: { color: c, width: 1.5, beginArrowType: "triangle", endArrowType: "triangle" } });
+        sl.addShape(pptx.ShapeType.line, { x: X(Math.min(a[0], b[0])), y: Y(Math.min(a[1], b[1])), w: Math.abs(a[0] - b[0]) * k, h: Math.abs(a[1] - b[1]) * k, flipH: (b[0] - a[0]) * (b[1] - a[1]) < 0, line: { color: c, width: 3, beginArrowType: "arrow", endArrowType: "arrow" } });
         const ld = distLeader(m, u);
         if (ld) { const [p0, p1] = ld; sl.addShape(pptx.ShapeType.line, { x: X(Math.min(p0[0], p1[0])), y: Y(Math.min(p0[1], p1[1])), w: Math.abs(p0[0] - p1[0]) * k, h: Math.abs(p0[1] - p1[1]) * k, flipH: (p1[0] - p0[0]) * (p1[1] - p0[1]) < 0, line: { color: c, width: 0.75 } }); }
-        if (m.val) { const [lx, ly] = distLabelPos(m, u); textAt(sl, m.val + "m", X(lx), Y(ly), pt(u * 1.05, 9, 16), c, { glow }); }
+        if (m.val) { const [lx, ly] = distLabelPos(m, u); textAt(sl, m.val + "m", X(lx), Y(ly), pt(u * 1.05, 9, 16), c); }
       }
       for (const m of of("road")) {
         const [x, y] = m.pts[0], s = u * 1.05;
-        sl.addShape(pptx.ShapeType.triangle, { x: X(x - s), y: Y(y - s * 0.8), w: 2 * s * k, h: 1.7 * s * k, flipV: true, fill: { color: hex(SITE_ROAD) }, line: { color: "FFFFFF", width: 0.75 } });
+        sl.addShape(pptx.ShapeType.triangle, { x: X(x - s), y: Y(y - s * 0.8), w: 2 * s * k, h: 1.7 * s * k, flipV: true, fill: { color: hex(SITE_ROAD) }, line: noLine });
         textAt(sl, m.no, X(x), Y(y - s * 0.3), pt(u * 0.9, 7, 14), "FFFFFF");
       }
-      for (const m of of("fac").filter((x) => facShape(x) === "point")) { const dd = u * 1.5 * k; sl.addShape(pptx.ShapeType.ellipse, { x: X(m.pts[0][0]) - dd / 2, y: Y(m.pts[0][1]) - dd / 2, w: dd, h: dd, fill: { color: hex(m.color) }, line: { color: "FFFFFF", width: 0.75 } }); }
-      for (const m of of("bldg")) textAt(sl, m.no, X(m.pts[0][0]), Y(m.pts[0][1]), pt(u * 1.7, 12, 28), "000000", { glow });
+      for (const m of of("fac").filter((x) => facShape(x) === "point")) { const dd = u * 1.5 * k; sl.addShape(pptx.ShapeType.ellipse, { x: X(m.pts[0][0]) - dd / 2, y: Y(m.pts[0][1]) - dd / 2, w: dd, h: dd, fill: { color: hex(m.color) }, line: noLine }); }
+      for (const m of of("bldg")) textAt(sl, m.no, X(m.pts[0][0]), Y(m.pts[0][1]), pt(u * 1.7, 12, 28), "000000");
       const runs = [];
       if (of("bldg").length) { runs.push(head("■ 인접건축물")); of("bldg").forEach((m) => runs.push(...line([[`${m.no}  `, { bold: true }], [`${m.name || ""}${m.photo ? `  #${m.photo}` : ""}${m.memo ? `  (${m.memo})` : ""}`]]))); }
       if (of("road").length) { runs.push(head("■ 도로")); of("road").forEach((m) => runs.push(...line([[`▼${m.no}  `, { bold: true, color: hex(SITE_ROAD) }], [`${roadText(m)}${m.photo ? `  #${m.photo}` : ""}${m.memo ? `  (${m.memo})` : ""}`]]))); }
@@ -3040,7 +3069,7 @@ async function exportSitePptx() {
     // ② 지하매설물 조사
     {
       const sl = newSlide("지하매설물 조사"), us = of("util"), d = u * 1.2 * k;
-      for (const m of us) sl.addShape(pptx.ShapeType.ellipse, { x: X(m.pts[0][0]) - d / 2, y: Y(m.pts[0][1]) - d / 2, w: d, h: d, fill: { color: hex(utilOf(m).color) }, line: { color: "FFFFFF", width: 0.75 } });
+      for (const m of us) sl.addShape(pptx.ShapeType.ellipse, { x: X(m.pts[0][0]) - d / 2, y: Y(m.pts[0][1]) - d / 2, w: d, h: d, fill: { color: hex(utilOf(m).color) }, line: noLine });
       const cell = (text, o) => ({ text, options: { fontFace: FONT, fontSize: 9, align: "center", valign: "middle", ...(o || {}) } });
       const rows = [[cell("구분", { bold: true, fill: { color: "BFBFBF" } }), cell("유무", { bold: true, fill: { color: "BFBFBF" } }), cell("기호", { bold: true, fill: { color: "BFBFBF" } })],
         ...SITE_UTILS.map((x) => { const has = us.some((m) => m.utype === x.key); return [cell(x.full), cell(has ? "유" : "무"), cell(has ? "●" : "-", { color: hex(x.color), fontSize: has ? 14 : 9 })]; })];
@@ -3333,6 +3362,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 7ba7b50442 -->
+<!-- build d710d07467 -->
 </body>
 </html>
