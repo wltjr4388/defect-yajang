@@ -2249,6 +2249,8 @@ function renderEquipPanel(P, m) {
   const floor = floorOf(m), its = m.items || [], rebar = its.includes("rebar");
   const vals = rbVals(m), hints = rbHints(m.member), thk = isThk(m.member), nz = thk ? 2 : 3;
   // 이 위치에 적은 번호가 있으면 그 다음부터 (X 6531 → Y 6532), 없으면 직전 위치의 마지막 번호 다음부터
+  // 단계별: 부재 → 조사 항목 → 항목별 입력·메모 (결함 야장과 같은 방식, 사용자 결정 2026-10-23)
+  const showI = !!(m.member || its.length), showR = !!(its.length || m.memo);
   const own = vals.filter((v) => /\d/.test(v)).pop(), empty = vals.slice(0, nz).filter((v) => !v).length, nxt = own ? bumpPhoto(own, 1) : rbNext(m.id);
   P.innerHTML = `
     <div class="ph">
@@ -2258,7 +2260,8 @@ function renderEquipPanel(P, m) {
     ${equipSummary(m)}
     <div class="fld sec"><span class="lab">부재 <span style="font-weight:500;color:var(--muted)">· ${m.type === "arrow" ? "수직부재" : "수평부재"}</span></span>${m.type === "arrow" ? memberHTML(m.member, eqMemberKeep(m), EQUIP_VMEMBERS) : memberHTML(m.member, eqMemberKeep(m), EQUIP_HMEMBERS, 2)}
       ${m.type !== "arrow" && m.member ? `<div class="xrow" style="gap:8px"><span style="font-size:13px;color:var(--muted)">위치</span><span class="chips">${["단부", "중앙부"].map((v) => `<button class="chip" data-pos="${v}" aria-pressed="${m.pos === v}">${v}</button>`).join("")}</span></div>` : ""}</div>
-    <div class="fld sec"><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
+    <div class="fld sec"${showI ? "" : " hidden"}><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
+    ${showI ? "" : '<p class="stephint">부재를 고르면 조사 항목이 나와요</p>'}${showI && !showR ? '<p class="stephint">조사 항목을 고르면 이미지번호·강도·규격 칸이 나와요</p>' : ""}
     ${rebar ? `<div class="fld sec"><span class="lab">철근배근 이미지번호</span>
       <div class="rbxyz" style="grid-template-columns:repeat(${nz},minmax(0,1fr))">${RB_AXES.slice(0, nz).map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
       ${empty && nxt ? `<button class="btn sugg rbfill" id="f-rbfill">빈 칸 이어서 채우기 · ${esc(nxt)}부터</button>` : ""}
@@ -2268,7 +2271,7 @@ function renderEquipPanel(P, m) {
     ${its.includes("size") && thk ? `<div class="fld sec"><span class="lab">부재규격 · 두께 (mm)</span>
       <div class="pair" style="grid-template-columns:auto minmax(0,1fr)"><span class="x">THK.</span><input class="inp num" data-ev="sw" inputmode="numeric" autocomplete="off" value="${esc(m.sw || "")}" placeholder="예: 200"></div></div>` : its.includes("size") ? `<div class="fld sec"><span class="lab">부재규격 (mm)</span>
       <div class="pair"><input class="inp num" data-ev="sw" inputmode="numeric" autocomplete="off" value="${esc(m.sw || "")}" placeholder="예: 400"><span class="x">×</span><input class="inp num" data-ev="sh" inputmode="numeric" autocomplete="off" value="${esc(m.sh || "")}" placeholder="예: 600"></div></div>` : ""}
-    <div class="fld inl sec"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
+    <div class="fld inl sec"${showR ? "" : " hidden"}><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
     <div class="pfoot"><button class="btn danger del" id="f-del">삭제</button><button class="btn del" id="f-move">다른 도면으로</button><button class="btn primary" id="f-done">완료</button></div>`;
   const upd = (field, v, rerender) => {
     const mm = selMark(); if (!mm) return;
