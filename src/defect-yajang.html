@@ -2094,7 +2094,8 @@ function finishDraw(g) {
   pushUndo();
   const m = {
     id: uid(), pageKey: k, type, pts, no: nextNo(floor),
-    member: S.lastInput.member || "", dtype: S.lastInput.dtype || "", w: "", l: "", count: 1, photo: "", memo: "",
+    // 결함은 미리 채우지 않음: 매번 부재 → 결함종류 순으로 고름 (사용자 결정 2026-10-23)
+    member: "", dtype: "", w: "", l: "", count: 1, photo: "", memo: "",
     createdAt: now(), updatedAt: now(),
   };
   if (lab) m.lab = lab;

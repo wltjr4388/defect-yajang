@@ -327,7 +327,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "ba927a1683"; window.DY_BUILT = "2026-10-23 11:23";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "11a1f4b0c3"; window.DY_BUILT = "2026-10-23 11:24";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2106,7 +2106,8 @@ function finishDraw(g) {
   pushUndo();
   const m = {
     id: uid(), pageKey: k, type, pts, no: nextNo(floor),
-    member: S.lastInput.member || "", dtype: S.lastInput.dtype || "", w: "", l: "", count: 1, photo: "", memo: "",
+    // 결함은 미리 채우지 않음: 매번 부재 → 결함종류 순으로 고름 (사용자 결정 2026-10-23)
+    member: "", dtype: "", w: "", l: "", count: 1, photo: "", memo: "",
     createdAt: now(), updatedAt: now(),
   };
   if (lab) m.lab = lab;
@@ -3587,6 +3588,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build ba927a1683 -->
+<!-- build 11a1f4b0c3 -->
 </body>
 </html>
