@@ -327,7 +327,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "0d04c29670"; window.DY_BUILT = "2026-10-23 11:34"; window.DY_FS_TPL = "현장조사장 정리 V1.1";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "2e2a994e35"; window.DY_BUILT = "2026-10-23 11:40"; window.DY_FS_TPL = "현장조사장 정리 V1.1";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2112,7 +2112,7 @@ function finishDraw(g) {
     createdAt: now(), updatedAt: now(),
   };
   if (lab) m.lab = lab;
-  if (isEquip()) { m.items = [...(S.lastInput.items || [])]; m.member = (type === "arrow" ? S.lastInput.memberV : S.lastInput.memberH) || ""; }   // 장비: 직전 항목, 같은 종류(수평/수직)의 직전 부재
+  if (isEquip()) m.items = [];   // 장비도 미리 채우지 않음: 부재·조사 항목을 매번 고름 (사용자 결정 2026-10-23)
   S.proj.marks.push(m);
   S.sel = m.id;
   touch(k);
@@ -3577,6 +3577,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 0d04c29670 -->
+<!-- build 2e2a994e35 -->
 </body>
 </html>

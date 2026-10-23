@@ -2100,7 +2100,7 @@ function finishDraw(g) {
     createdAt: now(), updatedAt: now(),
   };
   if (lab) m.lab = lab;
-  if (isEquip()) { m.items = [...(S.lastInput.items || [])]; m.member = (type === "arrow" ? S.lastInput.memberV : S.lastInput.memberH) || ""; }   // 장비: 직전 항목, 같은 종류(수평/수직)의 직전 부재
+  if (isEquip()) m.items = [];   // 장비도 미리 채우지 않음: 부재·조사 항목을 매번 고름 (사용자 결정 2026-10-23)
   S.proj.marks.push(m);
   S.sel = m.id;
   touch(k);
