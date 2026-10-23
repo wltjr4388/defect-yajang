@@ -2727,18 +2727,13 @@ function exportModal() {
         <button class="btn primary xgo" id="x-pdf">PDF 만들기</button>
       </section>
       <section class="xcard">
-        <h4>${eq ? "장비조사 엑셀" : "결과표 엑셀"}</h4>
-        <p class="xd">${eq ? EQUIP_ITEMS.map((it) => it.name).join("·") + " 시트 따로 · 그 항목을 한 위치만" : "번호·층·부재·결함유형·규격·사진번호"}</p>
+        <h4>${eq ? "장비조사 엑셀 (현장조사장 정리)" : "결과표 엑셀"}</h4>
+        <p class="xd">${eq ? "고른 양식(xlsm)에 바로 채움 · 철근배근 → 분류입력, 부재규격 → 부재규격, 압축강도 시트 추가" : "번호·층·부재·결함유형·규격·사진번호"}</p>
+        ${eq ? `<div class="xrow" style="font-size:13px">양식 <b id="x-tplname">${esc(fsTplName() || "없음 · 먼저 골라 주세요")}</b>
+          <label class="btn" style="min-height:36px">${fsTplName() ? "바꾸기" : "양식 고르기"}<input type="file" id="x-tpl" accept=".xlsm,application/vnd.ms-excel.sheet.macroEnabled.12" hidden></label></div>` : ""}
         <div class="xrow">층 순서 <span class="chips">${[["top", "지붕 → 지하"], ["bottom", "지하 → 지붕"]].map(([v, nm]) => `<button class="chip" data-ford="${v}" aria-pressed="${(S.proj.prefs.floorOrder || "top") === v}">${nm}</button>`).join("")}</span></div>
-        <button class="btn primary xgo" id="x-xlsx">엑셀 만들기</button>
+        <div class="xrow" style="justify-content:flex-end">${eq ? `<button class="btn ghost" id="x-xlsx" style="min-height:36px;font-size:13px">항목별 간단 엑셀(xlsx)</button><button class="btn primary" id="x-fs">엑셀 만들기</button>` : `<button class="btn primary" id="x-xlsx">엑셀 만들기</button>`}</div>
       </section>
-      ${eq ? `<section class="xcard">
-        <h4>현장조사장 정리 (xlsm)</h4>
-        <p class="xd">고른 양식 파일에 바로 채움 · 철근배근 → 분류입력, 부재규격 → 부재규격, 압축강도 시트 추가 · 층 순서는 위 엑셀과 같음</p>
-        <div class="xrow" style="font-size:13px">양식 <b id="x-tplname">${esc(fsTplName() || "없음")}</b>
-          <label class="btn" style="min-height:36px">${fsTplName() ? "바꾸기" : "양식 고르기"}<input type="file" id="x-tpl" accept=".xlsm,application/vnd.ms-excel.sheet.macroEnabled.12" hidden></label></div>
-        <button class="btn primary xgo" id="x-fs" ${fsTplName() ? "" : "disabled"}>xlsm 만들기</button>
-      </section>` : ""}
       ${site ? `<section class="xcard">
         <h4>주변현황 파워포인트</h4>
         <p class="xd">배치도 그림 위에 표시를 파워포인트 도형으로 · 2장(인접건축물·주변현황 / 지하매설물) · 오른쪽에 사진번호 목록</p>
@@ -2764,7 +2759,7 @@ function exportModal() {
     $("#x-fs").onclick = () => runBusy($("#x-fs"), exportFieldSurveyXlsm);
     $("#x-tpl").onchange = async (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
-      try { await setFsTemplate(f); $("#x-tplname").textContent = fsTplName(); $("#x-fs").disabled = false; toast("양식을 기억했습니다 (이 기기)"); }
+      try { await setFsTemplate(f); $("#x-tplname").textContent = fsTplName(); toast("양식을 기억했습니다 (이 기기)"); }
       catch (er) { toast("양식 오류: " + ((er && er.message) || er), 4000); }
       e.target.value = "";
     };
@@ -3049,7 +3044,7 @@ function fsItemNames(member) {
 }
 async function exportFieldSurveyXlsm() {
   if (!window.JSZip) throw new Error("압축 기능을 불러오지 못했습니다 (인터넷 확인)");
-  const tpl = await Local.getBlob(FS_TPL_KEY); if (!tpl) throw new Error("먼저 양식 파일(xlsm)을 고르세요");
+  const tpl = await Local.getBlob(FS_TPL_KEY); if (!tpl) throw new Error("먼저 [양식 고르기]로 현장조사장 정리 양식(xlsm)을 고르세요");
   const zip = await JSZip.loadAsync(await tpl.arrayBuffer()), sheets = await fsSheets(zip);
   const pathOf = (nm) => (sheets.find((x) => x.name === nm) || {}).path;
   const MAXR = 200, ord = equipOrdered(), pick = (key) => { const lab = equipLabels(key); return ord.filter((m) => lab.has(m.id)).map((m) => [m, lab.get(m.id)]); };
