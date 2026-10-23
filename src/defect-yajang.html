@@ -184,6 +184,9 @@ button { cursor: pointer; }
 .fld { display: grid; gap: 6px; }
 .fld > .lab { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .05em; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips .morebox { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow-y: auto; padding: 8px; border: 1px solid var(--line); border-radius: 10px; -webkit-overflow-scrolling: touch; }
+[hidden] { display: none !important; }
+.stephint { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
 .chip { min-height: 40px; padding: 0 12px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); font-weight: 500; }
 .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .chip.add { border-style: dashed; color: var(--muted); }
@@ -342,11 +345,22 @@ function addCustom(kind, v) { const a = recentCustom(kind).filter((x) => x !== v
 // 결함종류는 분류 탭으로 묶음. 균열은 하나로 저장: 수직·수평·경사는 여러 개 고르면 "수직+수평균열"로 합침
 const DEFAULT_GROUPS = [
   { name: "균열", items: ["수직균열", "수평균열", "경사균열", "이질재 접합부 이격", "망상균열"] },
-  { name: "누수", items: ["누수", "누수흔적"] },
-  { name: "미장", items: ["미장 들뜸", "미장 박리", "미장 박락"] },
   { name: "도장", items: ["도장 열화", "도장 박리", "도장 박락", "도장 들뜸", "도장 변색"] },
-  { name: "콘크리트", items: ["콘크리트 박리", "콘크리트 박락", "철근노출", "철근 부식"] },
+  { name: "미장", items: ["미장 들뜸", "미장 박리", "미장 박락", "미장 균열"] },
+  { name: "콘크리트", items: ["콘크리트 박리", "콘크리트 박락", "콘크리트 재료분리", "콘크리트 결손", "콘크리트 공극", "콘크리트 파손", "철근노출", "철근 부식"] },
+  { name: "누수", items: ["누수", "누수흔적", "백태", "진행성 누수", "오염"] },
+  // 철골: 저장값 = 결과표 선택판 매크로가 G열에 쓰는 문구 (부식 → 철골 부식, 볼트 풀림은 그대로)
+  { name: "철골", items: ["철골 부식", "철골 녹 발생", "볼트 풀림", "볼트 미체결", "볼트 누락", "볼트 부식", "용접부 균열", "용접부 결함", "철골 도장 박리", "철골 도장 박락", "철골 도장 들뜸", "철골 변형", "철골 좌굴", "철골 부재 휨", "접합부 이격", "접합부 파손", "철골 단면 손실", "철골 부재 파손"] },
 ];
+// 버튼 글자는 탭 이름을 뺌: 균열 탭 "수직", 미장 탭 "박리", 철골 탭 "부식" (누수 탭은 그대로, 사용자 지정)
+function chipLabel(g, it) {
+  if (g === "균열") return it.replace(/균열$/, "") || it;
+  if (g === "누수") return it;
+  const h = g + " ";
+  return it.startsWith(h) && it.length > h.length ? it.slice(h.length) : it;
+}
+// 부재 '기타' 목록: 결과표 부재 선택판 24개 중 기본 버튼에 없는 것 (누르면 스크롤 목록)
+const EXTRA_MEMBERS = ["천장 텍스", "타일", "방수층", "바닥 방수층", "처마", "계단", "보", "슬래브", "난간", "파라펫", "외벽", "내벽", "지붕", "철골 보", "철골 기둥", "옥상 슬래브", "창호", "천장"];
 // 예전 이름 → 새 결과표(외관조사결함표, 사진첩, 공사비 합본) 선택판 문구
 const TYPE_ALIAS = { "접합부 이격 균열": "이질재 접합부 이격" };
 // 결과표 E열 구조: 이 부재가 하나라도 있으면 구조체, 아니면 비구조체. 단 이질재 접합부 이격은 부재와 상관없이 비구조체 (사용자 지정)
@@ -613,7 +627,8 @@ function members() {
 const shortMember = (x) => x.replace(/^천장 /, "");
 function splitMember(s) {
   const list = members();
-  return String(s || "").split("+").map((x) => x.trim()).filter(Boolean).map((x) => list.includes(x) ? x : (list.find((f) => shortMember(f) === x) || x));
+  const ps = String(s || "").split("+").map((x) => x.trim()).filter(Boolean);
+  return ps.map((x) => list.includes(x) || ps.length < 2 ? x : (list.find((f) => shortMember(f) === x) || x));
 }
 function joinMember(parts) {
   const rank = (x) => { const i = MEMBER_ORDER.indexOf(x); return i >= 0 ? i : 100 + members().indexOf(x); };
@@ -621,19 +636,16 @@ function joinMember(parts) {
   return parts.length > 1 ? parts.map(shortMember).join("+") : (parts[0] || "");
 }
 // 예전 설정에 남은 "수직+수평균열" 같은 합친 이름은 버튼에서 뺌 (방향 버튼으로 고름)
-// 설정 저장한 조사(typeGroups 고정)도 새 버튼으로: 이름 바꾸기, 도장 들뜸·변색, 철근 부식 추가 (설정을 다시 저장하면 typesV3)
-function typesV3(gs) {
-  return gs.map((g) => {
-    let items = [...new Set(g.items.map((it) => TYPE_ALIAS[it] || it))];
-    if (items.some((x) => /^도장 /.test(x))) items = [...items, ...["도장 들뜸", "도장 변색"].filter((x) => !items.includes(x))];
-    if (items.includes("철근노출") && !items.includes("철근 부식")) items.splice(items.indexOf("철근노출") + 1, 0, "철근 부식");
-    return { ...g, items };
-  });
+// 설정 저장한 조사(typeGroups 고정)도 새 기본 버튼·탭 순서로: 기본 탭에 기본 항목을 채우고, 직접 넣은 항목·탭은 뒤에 남김 (설정을 다시 저장하면 typesV4)
+function typesV4(gs) {
+  const alias = (it) => TYPE_ALIAS[it] || it;
+  const merged = DEFAULT_GROUPS.map((dg) => { const sg = gs.find((g) => g.name === dg.name); return { ...dg, items: [...new Set([...dg.items, ...(sg ? sg.items.map(alias) : [])])] }; });
+  return [...merged, ...gs.filter((g) => !DEFAULT_GROUPS.some((dg) => dg.name === g.name)).map((g) => ({ ...g, items: g.items.map(alias) }))];
 }
 function groups() {
   const pr = (S.proj && S.proj.prefs) || {};
   let gs = pr.typeGroups || DEFAULT_GROUPS;
-  if (pr.typeGroups && !pr.typesV3) gs = typesV3(gs);
+  if (pr.typeGroups && !pr.typesV4) gs = typesV4(gs);
   return gs.map((g) => ({ ...g, items: g.items.filter((it) => (crackDirs(it) || []).length < 2) }));
 }
 // 방향 균열: "수직+경사균열" → ["수직", "경사"], 아니면 null
@@ -675,7 +687,8 @@ function excelType(s) {
   if (rx || rc) { used.add("철근노출"); used.add("철근 부식"); out.push(rx && rc ? "철근노출 및 부식" : rx ? "철근노출" : "철근 부식"); }
   grp("도장", ["열화", "박리", "박락", "들뜸", "변색"]);
   grp("미장", ["박리", "박락", "들뜸", "균열"]);
-  ["누수", "누수흔적", "이질재 접합부 이격"].forEach((t) => has(t) && out.push(take(t)));
+  ["누수", "누수흔적", "백태", "이질재 접합부 이격", "진행성 누수", "오염"].forEach((t) => has(t) && out.push(take(t)));
+  (DEFAULT_GROUPS.find((g) => g.name === "철골") || { items: [] }).items.forEach((t) => has(t) && out.push(take(t)));
   ts.filter((t) => !used.has(t)).forEach((t) => out.push(t));
   return out.join(", ");
 }
@@ -685,19 +698,25 @@ function structOf(member, dtype) {
   return !ps.length ? "" : ps.some((x) => STRUCT_MEMBERS.includes(x)) ? "구조체" : "비구조체";
 }
 // 결과표 M열 보수방안: 우리 판정 기준 (양식 수식 대신, 사용자 결정 2026-10-23). 공법명은 양식 결함물량 J열 그대로
-// 한 결함에 여러 종류면 위에서부터 먼저 걸리는 것: 텍스 → 균열+누수 → 철근 → 콘크리트 박리·박락 → 균열·이격(폭 0.3mm) → 망상 → 미장 → 도장 → 누수만 → 누수흔적
+// 한 결함에 여러 종류면 위에서부터 먼저 걸리는 것: 텍스·타일·방수층 → 철골 부식·도장 → 균열+누수 → 철근·콘크리트 파손 → 콘크리트 박리·박락 등 → 균열·이격(폭 0.3mm) → 망상 → 미장 → 도장 → 누수만 → 누수흔적
+// 타일·방수층·철골은 양식 결함물량표 공법 (우리 기준에 없음). 백태·오염만, 볼트·용접·변형 등은 비워 두고 메모
 function repairOf(m) {
   const ts = splitTypes(m.dtype), has = (t) => ts.includes(t), s = structOf(m.member, m.dtype) === "구조체", w = Number(m.w);
   if (!ts.length) return "";
-  if (/텍스/.test(m.member || "")) return "텍스 재시공";
-  if (has("누수") && ts.length > 1) return "습식주입공법";
-  if (has("철근노출") || has("철근 부식")) return "방청 후 단면복구";
-  if (has("콘크리트 박리") || has("콘크리트 박락")) return "단면복구";
+  const mem = m.member || "", leak = has("누수") || has("진행성 누수");
+  if (/텍스/.test(mem)) return "텍스 재시공";
+  if (/타일/.test(mem)) return "타일 재시공";
+  if (/방수층/.test(mem)) return "방수층 재시공";
+  if (has("철골 부식") || has("철골 녹 발생") || has("볼트 부식")) return "녹제거 후 도장보수(철재면)";
+  if (ts.some((t) => /^철골 도장 /.test(t))) return "도장보수(철재면)";
+  if (leak && ts.length > 1) return "습식주입공법";
+  if (has("철근노출") || has("철근 부식") || has("콘크리트 파손")) return "방청 후 단면복구";
+  if (["박리", "박락", "재료분리", "결손", "공극"].some((x) => has("콘크리트 " + x))) return "단면복구";
   if (ts.some((t) => crackDirs(t) || t === "이질재 접합부 이격")) return !(w > 0) ? "" : w < 0.3 ? (s ? "표면처리공법①" : "표면처리공법③") : s ? "건식주입공법" : "충전공법";
   if (has("망상균열")) return s ? "표면처리공법②" : "표면처리공법④";
   if (ts.some((t) => /^미장 /.test(t))) return "몰탈보수";
   if (ts.some((t) => /^도장 /.test(t))) return "도장보수";
-  if (has("누수")) return "도장보수";
+  if (leak) return "도장보수";
   if (has("누수흔적")) return s ? "표면처리공법②" : "표면처리공법④";
   return "";
 }
@@ -2189,7 +2208,9 @@ function memberHTML(val, keep, list, brk) {
   let base = list ? [...list, ...recentCustom("member").filter((x) => !list.includes(x))] : [...members(), ...recentCustom("member").filter((x) => !members().includes(x))];
   if (keep) base = base.filter((x) => (list && list.includes(x)) || keep(x));
   const ps = splitMember(val), all = [...base, ...ps.filter((x) => !base.includes(x))];
-  return `<div class="chips" data-field="member">${all.map((v, i) => `${brk && i === brk ? '<span class="brk"></span>' : ""}<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-add="member">+ 직접</button></div>`;
+  const extra = list ? [] : EXTRA_MEMBERS.filter((x) => !base.includes(x));
+  const chip = (v) => `<button class="chip" data-v="${esc(v)}" aria-pressed="${ps.includes(v)}">${esc(v)}</button>`;
+  return `<div class="chips" data-field="member">${all.map((v, i) => `${brk && i === brk ? '<span class="brk"></span>' : ""}${chip(v)}`).join("")}${extra.length ? `<button class="chip add" data-mmore aria-expanded="${!!S.memMore}">기타 ${S.memMore ? "▴" : "▾"}</button>` : ""}<button class="chip add" data-add="member">+ 직접</button>${extra.length && S.memMore ? `<div class="morebox">${extra.map(chip).join("")}</div>` : ""}</div>`;
 }
 // 선택 표시도 저장되는 글자처럼: "미장 박리, 박락" (× 누르면 그 항목만 빠짐)
 function selTags(sel) {
@@ -2203,7 +2224,7 @@ function dtypeHTML(m) {
   const g = gs.find((x) => x.name === S.dtab) || { items: [] };
   return `
     <div class="dtabs" role="tablist">${gs.map((x) => `<button role="tab" data-tab="${esc(x.name)}" aria-selected="${x.name === S.dtab}">${esc(x.name)}${x.items.some((it) => typeOn(sel, it)) ? "<i></i>" : ""}</button>`).join("")}</div>
-    <div class="chips" data-dt>${g.items.map((v) => `<button class="chip" data-t="${esc(v)}" aria-pressed="${typeOn(sel, v)}">${esc(v)}</button>`).join("")}<button class="chip add" data-tadd>+ 직접</button></div>`;
+    <div class="chips" data-dt>${g.items.map((v) => `<button class="chip" data-t="${esc(v)}" aria-pressed="${typeOn(sel, v)}">${esc(chipLabel(g.name, v))}</button>`).join("")}<button class="chip add" data-tadd>+ 직접</button></div>`;
 }
 // 입력창 맨 위 요약: 부재 · 결함종류 · 폭×길이 ×개수 · #사진 (입력한 것만)
 function markSummary(m) {
@@ -2305,6 +2326,8 @@ function renderPanel() {
   const floor = floorOf(m);
   const sugg = nextPhoto(lastPhotoExcept(m.id));
   const wu = widthUnit(m);
+  // 단계별로 펼침: 부재를 고르면 결함종류, 결함종류를 고르면 규격·사진·메모 (값이 있는 결함은 처음부터 다 보임)
+  const showT = !!(m.member || m.dtype), showR = !!(m.dtype || m.w || m.l || m.photo || m.memo);
   P.innerHTML = `
     <div class="ph">
       <span class="big"><button class="no-edit" id="f-no">결함 <span class="num">${esc(m.no)}</span><small>번호 바꾸기</small></button></span>
@@ -2312,8 +2335,9 @@ function renderPanel() {
     </div>
     ${markSummary(m)}
     <div class="fld sec"><span class="lab">부재</span>${memberHTML(m.member)}</div>
-    <div class="fld sec"><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
-    <div class="row2 row-wlc sec">
+    <div class="fld sec"${showT ? "" : " hidden"}><span class="lab">결함종류</span>${dtypeHTML(m)}</div>
+    ${showT ? "" : '<p class="stephint">부재를 고르면 결함종류가 나와요</p>'}${showT && !showR ? '<p class="stephint">결함종류를 고르면 폭·길이·사진번호가 나와요</p>' : ""}
+    <div class="row2 row-wlc sec"${showR ? "" : " hidden"}>
       <div class="fld"><span class="lab">폭${wu ? `(${wu})` : ""}</span><input class="inp num" id="f-w" inputmode="decimal" autocomplete="off" value="${esc(m.w)}" placeholder="${wu === "m" ? "예: 0.5" : "예: 0.3"}"></div>
       <span class="x">×</span>
       <div class="fld"><span class="lab">길이(m)</span><input class="inp num" id="f-l" inputmode="decimal" autocomplete="off" value="${esc(m.l)}" placeholder="예: 1.5"></div>
@@ -2321,7 +2345,7 @@ function renderPanel() {
         <span class="stepper"><button id="f-cm" aria-label="개수 줄이기">−</button><input class="num" id="f-count" inputmode="numeric" value="${esc(m.count)}"><button id="f-cp" aria-label="개수 늘리기">+</button></span>
       </div>
     </div>
-    <div class="fld sec"><span class="lab">사진번호</span>
+    <div class="fld sec"${showR ? "" : " hidden"}><span class="lab">사진번호</span>
       <div class="photo-wrap">
         <button class="btn pm" id="f-pm" aria-label="사진번호 하나 내리기">−</button>
         <input class="inp num" id="f-photo" autocomplete="off" autocapitalize="characters" value="${esc(m.photo)}" placeholder="예: IMG_0123">
@@ -2329,7 +2353,7 @@ function renderPanel() {
         ${sugg && sugg !== m.photo ? `<button class="btn sugg" id="f-sugg" aria-label="다음 사진번호 ${esc(sugg)} 넣기">다음 ${esc(sugg)}</button>` : ""}
       </div>
     </div>
-    <div class="fld inl sec"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
+    <div class="fld inl sec"${showR ? "" : " hidden"}><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
     <div class="pfoot"><button class="btn danger del" id="f-del">삭제</button><button class="btn del" id="f-move">다른 도면으로</button><button class="btn primary" id="f-done">완료</button></div>`;
   const upd = (field, v, rerender) => {
     const mm = selMark(); if (!mm) return;
@@ -2343,6 +2367,7 @@ function renderPanel() {
   // 부재: 여러 개 고르면 "보+조적벽체"처럼 합침
   const toggleMember = (v) => { const ps = splitMember(selMark().member); upd("member", joinMember(ps.includes(v) ? ps.filter((x) => x !== v) : [...ps, v]), true); };
   mbox.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.v)));
+  const more = mbox.querySelector("[data-mmore]"); if (more) more.onclick = () => { S.memMore = !S.memMore; renderPanel(); };
   P.querySelectorAll("[data-mdel]").forEach((b) => (b.onclick = () => toggleMember(b.dataset.mdel)));
   mbox.querySelector("[data-add]").onclick = () => customModal("부재 직접 입력", (v) => { if (!members().includes(v)) addCustom("member", v); if (!splitMember(selMark().member).includes(v)) toggleMember(v); });
   // 결함종류: 여러 개 선택, 균열은 하나만 (수직·수평·경사는 서로 합쳐서 "수직+수평균열")
@@ -2881,7 +2906,7 @@ function settingsModal() {
   $("#s-reset").onclick = () => { $("#s-mem").value = DEFAULT_MEMBERS.join(", "); $("#s-typ").value = groupsText(DEFAULT_GROUPS); $("#s-sz").value = 1; $("#s-szv").textContent = "1.0"; };
   $("#s-ok").onclick = () => {
     const gs = parseGroups($("#s-typ").value);
-    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), membersV2: true, typesV3: true, typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
+    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), membersV2: true, typesV4: true, typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
     delete p.prefs.types;
     touch(null); closeModal(); renderOverlay(); renderPanel();
   };
