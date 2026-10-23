@@ -1147,7 +1147,7 @@ function renderBar() {
   if (isEquip() && S.tool === "area") S.tool = "point";
   // 배치도 도면은 주변조사 도구만 (결함·장비 표시는 안 씀)
   const site = isSitePage();
-  if (site && !SITE_TOOLS.includes(S.tool) && S.tool !== "pen" && S.tool !== "eraser") S.tool = "s-bldg";
+  if (site && !SITE_TOOLS.includes(S.tool) && S.tool !== "pen" && S.tool !== "eraser" && S.tool !== "lasso") S.tool = "s-bldg";
   if (!site && SITE_TOOLS.includes(S.tool)) S.tool = "point";
   const pg = S.pages[S.cur];
   const fl = pg ? floorOfPage(pg.key) : "";
@@ -1173,7 +1173,7 @@ function renderBar() {
         <button class="ibtn" id="t-redo" aria-label="앞으로 돌리기" ${S.redo.length ? "" : "disabled"}>${ICON.redo}</button>
       </span>
       <span class="tools" role="group" aria-label="표시 도구">
-        ${(site ? [...SITE_TOOLS, "pen", "eraser"] : isEquip() ? ["point", "arrow", "pen", "eraser", "lasso"] : ["point", "arrow", "area", "pen", "eraser", "lasso"]).map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개", lasso: "올가미" }[t] || SITE_LABEL[t.slice(2)] || KIND_LABEL[t]}</span></button>`).join("")}
+        ${(site ? [...SITE_TOOLS, "pen", "eraser", "lasso"] : isEquip() ? ["point", "arrow", "pen", "eraser", "lasso"] : ["point", "arrow", "area", "pen", "eraser", "lasso"]).map((t) => `<button data-tool="${t}" aria-pressed="${S.tool === t}">${ICON[t]}<span>${{ pen: "펜", eraser: "지우개", lasso: "올가미" }[t] || SITE_LABEL[t.slice(2)] || KIND_LABEL[t]}</span></button>`).join("")}
       </span>
       <span class="bt-r">
       </span>
@@ -1450,6 +1450,11 @@ function inPoly(q, poly) {
 function multiItems() { return S.multi ? S.multi.ids.map(findItem).filter((x) => x && !x.deleted) : []; }
 function itemBox(it, u) {
   if (it.kind) return noteBox(it, u);
+  if (it.sv) {
+    const qs = it.sv === "fac" && facShape(it) === "area" ? [...areaCorners(it), facTagPos(it, u)] : it.sv === "dist" ? [...it.pts, distLabelPos(it, u)] : it.pts;
+    const xs = qs.map((q) => q[0]), ys = qs.map((q) => q[1]), r = u * 1.6;
+    return { x: Math.min(...xs) - r, y: Math.min(...ys) - r, w: Math.max(...xs) - Math.min(...xs) + 2 * r, h: Math.max(...ys) - Math.min(...ys) + 2 * r };
+  }
   const qs = [...it.pts, labelPos(it, u)], xs = qs.map((q) => q[0]), ys = qs.map((q) => q[1]), r = u * 1.2;
   return { x: Math.min(...xs) - r, y: Math.min(...ys) - r, w: Math.max(...xs) - Math.min(...xs) + 2 * r, h: Math.max(...ys) - Math.min(...ys) + 2 * r };
 }
@@ -1461,6 +1466,11 @@ function multiBox(u) {
 function lassoPick(poly) {
   const k = curKey(), u = U(), ids = [];
   for (const m of marksOn(k)) if (inPoly(m.pts[0], poly) || inPoly(labelPos(m, u), poly)) ids.push(m.id);
+  // 주변조사 표시: 선·시설은 꼭짓점 절반 이상, 이격거리는 글자도 봄
+  for (const m of siteOn(k)) {
+    const qs = m.sv === "fac" && facShape(m) === "area" ? areaCorners(m) : m.pts;
+    if (qs.filter((q) => inPoly(q, poly)).length * 2 >= qs.length || (m.sv === "dist" && inPoly(distLabelPos(m, u), poly))) ids.push(m.id);
+  }
   for (const n of notesOn(k)) {
     const qs = n.kind === "pen" ? n.pts : [n.at];
     if (qs.filter((q) => inPoly(q, poly)).length * 2 >= qs.length) ids.push(n.id);
@@ -1537,7 +1547,7 @@ function siteSVG(m, u, sel) {
     const b = areaBox(m), { x, y, w, h } = b, [cx, cy] = boxCenter(b), tp = facTagPos(m, u);
     g += `<rect x="${x}" y="${y}" width="${w}" height="${h}"${m.rot ? ` transform="rotate(${m.rot} ${cx} ${cy})"` : ""} fill="${c}" fill-opacity="0.08" stroke="${c}" stroke-width="${u * 0.22}" stroke-dasharray="${u * 0.7} ${u * 0.4}"/>`;
     g += tag(tp[0], tp[1], [m.name || "이름?", ph].filter(Boolean).join(" "), c);
-    if (sel) { const top = rotP([cx, y], [cx, cy], m.rot || 0), rh = rotHandleAt(m, u); g += `<line x1="${top[0]}" y1="${top[1]}" x2="${rh[0]}" y2="${rh[1]}" stroke="${COL.sel}" stroke-width="${u * 0.1}"/>`; }
+    if (sel === true) { const top = rotP([cx, y], [cx, cy], m.rot || 0), rh = rotHandleAt(m, u); g += `<line x1="${top[0]}" y1="${top[1]}" x2="${rh[0]}" y2="${rh[1]}" stroke="${COL.sel}" stroke-width="${u * 0.1}"/>`; }
   } else if (m.sv === "util") {
     const [x, y] = m.pts[0];
     g += `<circle cx="${x}" cy="${y}" r="${u * 0.6}" fill="${c}"/>`;
@@ -1567,9 +1577,9 @@ function renderOverlay() {
     if (n.id === S.sel) { const b = noteBox(n, u), pd = u * 0.4; out += `<rect x="${b.x - pd}" y="${b.y - pd}" width="${b.w + pd * 2}" height="${b.h + pd * 2}" fill="none" stroke="${COL.sel}" stroke-width="${u * 0.12}" stroke-dasharray="${u * 0.5} ${u * 0.3}"/>`; }
   }
   const sm0 = selMark();
-  for (const m of siteOn(k)) out += siteSVG(m, u, m.id === S.sel);
-  if (sm0 && sm0.sv && sm0.pageKey === k) for (const h of siteHandles(sm0)) out += handleSVG(h.at);
   const inMulti = (id) => !!S.multi && S.multi.ids.includes(id);
+  for (const m of siteOn(k)) out += siteSVG(m, u, m.id === S.sel || (inMulti(m.id) && "multi"));
+  if (sm0 && sm0.sv && sm0.pageKey === k) for (const h of siteHandles(sm0)) out += handleSVG(h.at);
   const col = (m) => (m.id === S.sel || inMulti(m.id) ? COL.sel : isEquip() ? (m.type === "arrow" ? COL.eqV : COL.eqH) : COL.mark);
   for (const m of ms) out += geomSVG(m, col(m), u);
   for (const m of ms) out += labelSVG(m, col(m), u);
@@ -2546,7 +2556,7 @@ function renderPageSummary(P) {
   P.querySelectorAll("[data-sel]").forEach((b) => (b.onclick = () => { S.sel = b.dataset.sel; focusMark(selMark()); renderOverlay(); renderPanel(); }));
 }
 function renderMultiPanel(P) {
-  const its = multiItems(), nm = its.filter((x) => !x.kind).length, nn = its.length - nm, noun = isEquip() ? "위치" : "결함";
+  const its = multiItems(), nm = its.filter((x) => !x.kind).length, nn = its.length - nm, noun = isSitePage() ? "표시" : isEquip() ? "위치" : "결함";
   P.innerHTML = `
     <div class="ph"><span class="big">${its.length}개 선택</span><span class="meta">${[nm ? `${noun} ${nm}` : "", nn ? `메모 ${nn}` : ""].filter(Boolean).join(" · ")}</span></div>
     <p class="help" style="margin:0">고른 안쪽을 끌면 같이 움직입니다. 다른 곳을 둘러 그리면 새로 고릅니다.</p>
@@ -2568,8 +2578,10 @@ function renderMultiPanel(P) {
 function moveMarkModal(arg) {
   const items = (Array.isArray(arg) ? arg : [arg]).filter(Boolean); if (!items.length) return;
   const m = items[0], marks = items.filter((x) => !x.kind).sort((a, b) => (a.no || 0) - (b.no || 0)), notes = items.filter((x) => x.kind);
-  const others = S.pages.map((pg, i) => [pg, i]).filter(([pg]) => pg.key !== m.pageKey);
-  if (!others.length) { toast("옮길 다른 도면이 없습니다"); return; }
+  // 주변조사 표시는 배치도끼리, 결함·장비 표시는 배치도 아닌 도면끼리
+  const site = items.some((x) => x.sv), norm = items.some((x) => !x.kind && !x.sv);
+  const others = S.pages.map((pg, i) => [pg, i]).filter(([pg]) => pg.key !== m.pageKey && (!site || floorOfPage(pg.key) === SITE_FLOOR) && (!norm || floorOfPage(pg.key) !== SITE_FLOOR));
+  if (!others.length) { toast(site ? "옮길 다른 배치도가 없습니다" : "옮길 다른 도면이 없습니다"); return; }
   const pname = (pg) => `${esc(floorOfPage(pg.key) || "층 미지정")} · ${esc(pg.name)}${(S.proj.files.find((f) => f.fid === pg.fid) || {}).pageCount > 1 ? ` p.${pg.i + 1}` : ""}`;
   openModal(`
     <h3>다른 도면으로</h3>
@@ -2582,7 +2594,7 @@ function moveMarkModal(arg) {
   document.querySelectorAll("[data-to]").forEach((b) => (b.onclick = async () => {
     closeModal();
     const W0 = S.pi.W, H0 = S.pi.H, to = Number(b.dataset.to), tk = S.pages[to].key;
-    if (marks.length && !floorOfPage(tk)) { toast("그 도면은 층이 지정되지 않았습니다 · 먼저 층을 지정하세요"); return; }
+    if (marks.some((x) => !x.sv) && !floorOfPage(tk)) { toast("그 도면은 층이 지정되지 않았습니다 · 먼저 층을 지정하세요"); return; }
     pushUndo();
     await showPage(to);
     const sx = S.pi.W / W0, sy = S.pi.H / H0, sc = (q) => [q[0] * sx, q[1] * sy], t = now(), made = [];
@@ -2592,14 +2604,15 @@ function moveMarkModal(arg) {
       if (it.pts) n.pts = it.pts.map(sc);
       if (it.at) n.at = sc(it.at);
       if (it.lab) n.lab = sc(it.lab);
-      if (!it.kind) { n.no = nextNo(floorOfPage(tk)); S.proj.marks.push(n); } else { S.proj.notes = S.proj.notes || []; S.proj.notes.push(n); }
+      if (it.sv) { if (it.no != null && mode === "copy") n.no = siteNextNo(it.sv); else if (it.no != null) n.no = it.no; S.proj.marks.push(n); }   // 주변조사 번호는 건물 전체 이어서 → 옮기면 그대로
+      else if (!it.kind) { n.no = nextNo(floorOfPage(tk)); S.proj.marks.push(n); } else { S.proj.notes = S.proj.notes || []; S.proj.notes.push(n); }
       made.push(n);
       if (mode === "move") { it.deleted = true; it.updatedAt = t; touch(it.pageKey); }
     }
     touch(tk);
     if (made.length > 1) { S.multi = { ids: made.map((x) => x.id) }; S.sel = null; } else { S.sel = made[0].id; focusMark(made[0]); }
     renderOverlay(); renderPanel();
-    const nos = made.filter((x) => !x.kind).map((x) => x.no);
+    const nos = made.filter((x) => !x.kind && !x.sv).map((x) => x.no);
     toast(`${floorOfPage(tk) || "그 도면"}${nos.length ? ` ${nos[0]}${nos.length > 1 ? "~" + nos[nos.length - 1] : ""}번` : ""}으로 ${made.length > 1 ? made.length + "개 " : ""}${mode === "move" ? "옮겼습니다" : "복사했습니다"} · 되돌리기로 취소할 수 있습니다`, 3500);
   }));
 }
