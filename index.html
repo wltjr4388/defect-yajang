@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "026ed9191f"; window.DY_BUILT = "2026-10-23 10:58";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "c8a320cc00"; window.DY_BUILT = "2026-10-23 11:10";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -356,13 +356,15 @@ const DEFAULT_GROUPS = [
   { name: "균열", items: ["수직균열", "수평균열", "경사균열", "이질재 접합부 이격", "망상균열"] },
   { name: "누수", items: ["누수", "누수흔적"] },
   { name: "미장", items: ["미장 들뜸", "미장 박리", "미장 박락"] },
-  { name: "도장", items: ["도장 박리", "도장 박락", "도장 들뜸", "도장 변색"] },
+  { name: "도장", items: ["도장 열화", "도장 박리", "도장 박락", "도장 들뜸", "도장 변색"] },
   { name: "콘크리트", items: ["콘크리트 박리", "콘크리트 박락", "철근노출", "철근 부식"] },
 ];
 // 예전 이름 → 새 결과표(외관조사결함표, 사진첩, 공사비 합본) 선택판 문구
 const TYPE_ALIAS = { "접합부 이격 균열": "이질재 접합부 이격" };
-// 결과표 E열 구조: 이 부재가 하나라도 있으면 구조체, 아니면 비구조체 (사용자 지정)
-const STRUCT_MEMBERS = ["천장 보", "천장 슬래브", "기둥", "벽체", "바닥 슬래브", "보", "슬래브", "외벽", "철골 보", "철골 기둥"];
+// 결과표 E열 구조: 이 부재가 하나라도 있으면 구조체, 아니면 비구조체. 단 이질재 접합부 이격은 부재와 상관없이 비구조체 (사용자 지정)
+const STRUCT_MEMBERS = ["천장 보", "천장 슬래브", "기둥", "벽체", "바닥 슬래브", "계단 슬래브", "보", "슬래브", "외벽", "철골 보", "철골 기둥"];
+// 결과표 N열 우선순위 (양식 Z·AA열 공법 목록과 같음)
+const F3_PRIORITY = { "건식주입공법": 1, "표면처리공법①": 2, "표면처리공법②": 2, "습식주입공법": 1, "단면복구": 2, "방청 후 단면복구": 1, "녹제거 후 도장보수(철재면)": 1, "도장보수(철재면)": 2, "표면처리공법③": 3, "표면처리공법④": 3, "충전공법": 3, "몰탈보수": 3, "도장보수": 3, "코킹보수": 3, "텍스 재시공": 3, "타일 재시공": 3, "줄눈보수": 3, "방수층 재시공": 3 };
 const SINGLE_GROUP = "균열";
 const FLOORS = ["지하3층", "지하2층", "지하1층", "1층", "2층", "3층", "4층", "5층", "6층", "7층", "8층", "9층", "10층", "11층", "12층", "옥탑층", "지붕층"];
 const KIND_LABEL = { point: "점", arrow: "화살표", area: "영역" };
@@ -631,11 +633,11 @@ function joinMember(parts) {
   return parts.length > 1 ? parts.map(shortMember).join("+") : (parts[0] || "");
 }
 // 예전 설정에 남은 "수직+수평균열" 같은 합친 이름은 버튼에서 뺌 (방향 버튼으로 고름)
-// 설정 저장한 조사(typeGroups 고정)도 새 문구로: 이름 바꾸기, 도장 열화 → 들뜸·변색, 철근 부식 추가 (설정을 다시 저장하면 typesV2)
-function typesV2(gs) {
+// 설정 저장한 조사(typeGroups 고정)도 새 버튼으로: 이름 바꾸기, 도장 들뜸·변색, 철근 부식 추가 (설정을 다시 저장하면 typesV3)
+function typesV3(gs) {
   return gs.map((g) => {
     let items = [...new Set(g.items.map((it) => TYPE_ALIAS[it] || it))];
-    if (items.includes("도장 열화")) items = [...items.filter((x) => x !== "도장 열화"), ...["도장 들뜸", "도장 변색"].filter((x) => !items.includes(x))];
+    if (items.some((x) => /^도장 /.test(x))) items = [...items, ...["도장 들뜸", "도장 변색"].filter((x) => !items.includes(x))];
     if (items.includes("철근노출") && !items.includes("철근 부식")) items.splice(items.indexOf("철근노출") + 1, 0, "철근 부식");
     return { ...g, items };
   });
@@ -643,7 +645,7 @@ function typesV2(gs) {
 function groups() {
   const pr = (S.proj && S.proj.prefs) || {};
   let gs = pr.typeGroups || DEFAULT_GROUPS;
-  if (pr.typeGroups && !pr.typesV2) gs = typesV2(gs);
+  if (pr.typeGroups && !pr.typesV3) gs = typesV3(gs);
   return gs.map((g) => ({ ...g, items: g.items.filter((it) => (crackDirs(it) || []).length < 2) }));
 }
 // 방향 균열: "수직+경사균열" → ["수직", "경사"], 아니면 null
@@ -683,15 +685,33 @@ function excelType(s) {
   grp("콘크리트", ["박리", "박락", "재료분리", "결손", "공극", "파손"]);
   const rx = has("철근노출"), rc = has("철근 부식");
   if (rx || rc) { used.add("철근노출"); used.add("철근 부식"); out.push(rx && rc ? "철근노출 및 부식" : rx ? "철근노출" : "철근 부식"); }
-  grp("도장", ["박리", "박락", "들뜸", "변색"]);
+  grp("도장", ["열화", "박리", "박락", "들뜸", "변색"]);
   grp("미장", ["박리", "박락", "들뜸", "균열"]);
   ["누수", "누수흔적", "이질재 접합부 이격"].forEach((t) => has(t) && out.push(take(t)));
   ts.filter((t) => !used.has(t)).forEach((t) => out.push(t));
   return out.join(", ");
 }
-function structOf(member) {
+function structOf(member, dtype) {
   const ps = String(member || "").split("+").map((x) => x.trim()).filter(Boolean);
+  if (splitTypes(dtype).includes("이질재 접합부 이격")) return "비구조체";
   return !ps.length ? "" : ps.some((x) => STRUCT_MEMBERS.includes(x)) ? "구조체" : "비구조체";
+}
+// 결과표 M열 보수방안: 우리 판정 기준 (양식 수식 대신, 사용자 결정 2026-10-23). 공법명은 양식 결함물량 J열 그대로
+// 한 결함에 여러 종류면 위에서부터 먼저 걸리는 것: 텍스 → 균열+누수 → 철근 → 콘크리트 박리·박락 → 균열·이격(폭 0.3mm) → 망상 → 미장 → 도장 → 누수만 → 누수흔적
+function repairOf(m) {
+  const ts = splitTypes(m.dtype), has = (t) => ts.includes(t), s = structOf(m.member, m.dtype) === "구조체", w = Number(m.w);
+  if (!ts.length) return "";
+  if (/텍스/.test(m.member || "")) return "텍스 재시공";
+  if (has("누수") && ts.length > 1) return "습식주입공법";
+  if (has("철근노출") || has("철근 부식")) return "방청 후 단면복구";
+  if (has("콘크리트 박리") || has("콘크리트 박락")) return "단면복구";
+  if (ts.some((t) => crackDirs(t) || t === "이질재 접합부 이격")) return !(w > 0) ? "" : w < 0.3 ? (s ? "표면처리공법①" : "표면처리공법③") : s ? "건식주입공법" : "충전공법";
+  if (has("망상균열")) return s ? "표면처리공법②" : "표면처리공법④";
+  if (ts.some((t) => /^미장 /.test(t))) return "몰탈보수";
+  if (ts.some((t) => /^도장 /.test(t))) return "도장보수";
+  if (has("누수")) return "도장보수";
+  if (has("누수흔적")) return s ? "표면처리공법②" : "표면처리공법④";
+  return "";
 }
 function groupOf(t) { const g = groups().find((x) => x.items.includes(t)); return g ? g.name : crackDirs(t) ? SINGLE_GROUP : ""; }
 // 버튼 눌림: 고른 게 "수직+수평균열"이면 수직균열·수평균열 버튼이 눌림
@@ -2873,7 +2893,7 @@ function settingsModal() {
   $("#s-reset").onclick = () => { $("#s-mem").value = DEFAULT_MEMBERS.join(", "); $("#s-typ").value = groupsText(DEFAULT_GROUPS); $("#s-sz").value = 1; $("#s-szv").textContent = "1.0"; };
   $("#s-ok").onclick = () => {
     const gs = parseGroups($("#s-typ").value);
-    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), membersV2: true, typesV2: true, typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
+    p.prefs = { ...(p.prefs || {}), members: split($("#s-mem").value), membersV2: true, typesV3: true, typeGroups: gs.length ? gs : DEFAULT_GROUPS, size: Number($("#s-sz").value) };
     delete p.prefs.types;
     touch(null); closeModal(); renderOverlay(); renderPanel();
   };
@@ -2900,9 +2920,9 @@ function sortedRows() {
 }
 const asNum = (v) => (v !== "" && v != null && !isNaN(Number(v)) ? Number(v) : (v ?? ""));
 // 3종 정기점검 양식(외관조사결함표, 사진첩, 공사비 합본 xlsm)의 '외관조사 결과표'와 같은 칸: 7행부터 B~P
-// → 엑셀에서 B7:P(끝)를 복사해 양식 7행에 붙여넣으면 됨. C·K·M·N·O는 양식과 같은 수식을 넣어 둬서 붙여넣어도 안 지워짐
+// → 엑셀에서 B7:P(끝)를 복사해 양식 7행에 붙여넣으면 됨. C·K·N·O는 양식과 같은 수식을 넣어 둬서 붙여넣어도 안 지워짐 (M 보수방안은 우리 기준 값)
 // 양식 수식 (§ = 그 행, §1 = 한 행 위, §2 = 두 행 위). 양식 9행에서 뽑아 30행과 같은지 확인함 (2026-10-23)
-const F3_FX = {"C": "W§&\" / \"&Y§", "K": "IF(ISERROR(G§),\"결함명 오류\",\nIF(G§=\"\",\"\",\nIF(OR(NOT(ISNUMBER(I§)),NOT(ISNUMBER(J§)),I§<=0,J§<=0),\"규모 확인\",\nIF(AND(\nISERROR(SEARCH(\"망상\",G§)),\nOR(ISNUMBER(SEARCH(\"균열\",G§)),ISNUMBER(SEARCH(\"이격\",G§)))\n),\nI§*J§&\"m\",\nIF(OR(NOT(ISNUMBER(H§)),H§<=0),\"면적 너비 확인\",\nH§*I§*J§&\"㎡\")\n))))", "M": "IFERROR(IF(OR(F§=\"\",G§=\"\",F§=0,G§=0),\"\",_xlfn.LET(\n_xlpm.memberName,SUBSTITUTE(F§,\" \",\"\"),\n_xlpm.defectName,SUBSTITUTE(G§,\" \",\"\"),\n_xlpm.isSteel,OR(ISNUMBER(SEARCH(\"철골\",_xlpm.memberName)),ISNUMBER(SEARCH(\"강재\",_xlpm.memberName)),ISNUMBER(SEARCH(\"철골\",_xlpm.defectName)),ISNUMBER(SEARCH(\"강재\",_xlpm.defectName)),ISNUMBER(SEARCH(\"볼트\",_xlpm.defectName)),ISNUMBER(SEARCH(\"용접부\",_xlpm.defectName))),\n_xlpm.isNonstruct,OR(ISNUMBER(SEARCH(\"조적\",_xlpm.memberName)),ISNUMBER(SEARCH(\"텍스\",_xlpm.memberName)),ISNUMBER(SEARCH(\"타일\",_xlpm.memberName)),ISNUMBER(SEARCH(\"미장\",_xlpm.memberName)),ISNUMBER(SEARCH(\"내벽\",_xlpm.memberName)),ISNUMBER(SEARCH(\"창호\",_xlpm.memberName))),\n_xlpm.isCrack,ISNUMBER(SEARCH(\"균열\",_xlpm.defectName)),\n_xlpm.widthVal,IF(ISNUMBER(H§),H§,-1),\n_xlfn.IFS(\nAND(_xlpm.isSteel,OR(ISNUMBER(SEARCH(\"볼트풀림\",_xlpm.defectName)),ISNUMBER(SEARCH(\"볼트미체결\",_xlpm.defectName)),ISNUMBER(SEARCH(\"볼트누락\",_xlpm.defectName)))),\"볼트 체결·재설치 검토\",\nAND(_xlpm.isSteel,ISNUMBER(SEARCH(\"볼트부식\",_xlpm.defectName))),\"볼트 부식보수 검토\",\nAND(_xlpm.isSteel,OR(ISNUMBER(SEARCH(\"용접부\",_xlpm.defectName)),ISNUMBER(SEARCH(\"접합부\",_xlpm.defectName)))),\"용접·접합부 보수 검토\",\nAND(_xlpm.isSteel,OR(ISNUMBER(SEARCH(\"좌굴\",_xlpm.defectName)),ISNUMBER(SEARCH(\"변형\",_xlpm.defectName)),ISNUMBER(SEARCH(\"부재휨\",_xlpm.defectName)),ISNUMBER(SEARCH(\"단면손실\",_xlpm.defectName)),ISNUMBER(SEARCH(\"부재파손\",_xlpm.defectName)))),\"철골부재 보수·보강 검토\",\nAND(_xlpm.isSteel,OR(ISNUMBER(SEARCH(\"부식\",_xlpm.defectName)),ISNUMBER(SEARCH(\"녹발생\",_xlpm.defectName)))),$Z$12,\nAND(_xlpm.isSteel,ISNUMBER(SEARCH(\"도장\",_xlpm.defectName))),$Z$13,\n_xlpm.isSteel,\"철골 보수 검토\",\nISNUMBER(SEARCH(\"철근노출\",_xlpm.defectName)),$Z$11,\nAND(OR(ISNUMBER(SEARCH(\"콘크리트\",_xlpm.memberName)),ISNUMBER(SEARCH(\"콘크리트\",_xlpm.defectName)),ISNUMBER(SEARCH(\"재료분리\",_xlpm.defectName))),OR(ISNUMBER(SEARCH(\"박리\",_xlpm.defectName)),ISNUMBER(SEARCH(\"박락\",_xlpm.defectName)),ISNUMBER(SEARCH(\"결손\",_xlpm.defectName)),ISNUMBER(SEARCH(\"공극\",_xlpm.defectName)),ISNUMBER(SEARCH(\"재료분리\",_xlpm.defectName)))),$Z$10,\nOR(ISNUMBER(SEARCH(\"코킹\",_xlpm.memberName)),ISNUMBER(SEARCH(\"코킹\",_xlpm.defectName))),$Z$19,\nOR(ISNUMBER(SEARCH(\"줄눈\",_xlpm.memberName)),ISNUMBER(SEARCH(\"줄눈\",_xlpm.defectName))),$Z$22,\nAND(OR(ISNUMBER(SEARCH(\"방수\",_xlpm.memberName)),ISNUMBER(SEARCH(\"방수\",_xlpm.defectName))),OR(ISNUMBER(SEARCH(\"파손\",_xlpm.defectName)),ISNUMBER(SEARCH(\"들뜸\",_xlpm.defectName)),ISNUMBER(SEARCH(\"박리\",_xlpm.defectName)))),$Z$23,\nAND(ISNUMBER(SEARCH(\"텍스\",_xlpm.memberName)),OR(ISNUMBER(SEARCH(\"파손\",_xlpm.defectName)),ISNUMBER(SEARCH(\"들뜸\",_xlpm.defectName)),ISNUMBER(SEARCH(\"누수\",_xlpm.defectName)))),$Z$20,\nAND(ISNUMBER(SEARCH(\"타일\",_xlpm.memberName)),OR(ISNUMBER(SEARCH(\"파손\",_xlpm.defectName)),ISNUMBER(SEARCH(\"박리\",_xlpm.defectName)),ISNUMBER(SEARCH(\"박락\",_xlpm.defectName)),ISNUMBER(SEARCH(\"들뜸\",_xlpm.defectName)))),$Z$21,\nAND(OR(ISNUMBER(SEARCH(\"미장\",_xlpm.defectName)),ISNUMBER(SEARCH(\"모르타르\",_xlpm.defectName)),ISNUMBER(SEARCH(\"몰탈\",_xlpm.defectName))),OR(ISNUMBER(SEARCH(\"박리\",_xlpm.defectName)),ISNUMBER(SEARCH(\"박락\",_xlpm.defectName)),ISNUMBER(SEARCH(\"들뜸\",_xlpm.defectName)),ISNUMBER(SEARCH(\"파손\",_xlpm.defectName)))),$Z$17,\nAND(ISNUMBER(SEARCH(\"도장\",_xlpm.defectName)),OR(ISNUMBER(SEARCH(\"박리\",_xlpm.defectName)),ISNUMBER(SEARCH(\"박락\",_xlpm.defectName)),ISNUMBER(SEARCH(\"들뜸\",_xlpm.defectName)),ISNUMBER(SEARCH(\"파손\",_xlpm.defectName)))),$Z$18,\nISNUMBER(SEARCH(\"진행성누수\",_xlpm.defectName)),\"누수 원인 확인\",\nAND(ISNUMBER(SEARCH(\"망상\",_xlpm.defectName)),_xlpm.isNonstruct),$Z$15,\nISNUMBER(SEARCH(\"망상\",_xlpm.defectName)),$Z$8,\nAND(_xlpm.isCrack,ISNUMBER(SEARCH(\"누수\",_xlpm.defectName)),NOT(ISNUMBER(SEARCH(\"누수흔적\",_xlpm.defectName))),NOT(_xlpm.isNonstruct),_xlpm.widthVal>=0.1),$Z$9,\nAND(ISNUMBER(SEARCH(\"누수\",_xlpm.defectName)),NOT(ISNUMBER(SEARCH(\"누수흔적\",_xlpm.defectName)))),\"누수 원인 확인\",\nAND(NOT(_xlpm.isCrack),ISNUMBER(SEARCH(\"누수\",_xlpm.defectName))),\"누수 원인 확인\",\nISNUMBER(SEARCH(\"이격\",_xlpm.defectName)),$Z$16,\nAND(_xlpm.isCrack,_xlpm.widthVal<=0),\"균열폭 확인\",\nAND(_xlpm.isCrack,_xlpm.isNonstruct,_xlpm.widthVal>=0.3),$Z$16,\nAND(_xlpm.isCrack,_xlpm.isNonstruct,_xlpm.widthVal<0.3),$Z$14,\nAND(_xlpm.isCrack,_xlpm.widthVal>=0.3),$Z$6,\nAND(_xlpm.isCrack,_xlpm.widthVal<0.3),$Z$7,\nTRUE,\"유지관리\"\n))),\"수식 오류\")", "N": "IFERROR(INDEX($AA$6:$AA$23,MATCH(M§,$Z$6:$Z$23,0)),\"-\")", "O": "_xlfn.IFS(P§=\"\",\"-\",O§1=\"-\",O§2+1,P§<>\"\",O§1+1,TRUE,0)", "O7": "IF(P§=\"\",\"-\",1)"};
+const F3_FX = {"C": "W§&\" / \"&Y§", "K": "IF(ISERROR(G§),\"결함명 오류\",\nIF(G§=\"\",\"\",\nIF(OR(NOT(ISNUMBER(I§)),NOT(ISNUMBER(J§)),I§<=0,J§<=0),\"규모 확인\",\nIF(AND(\nISERROR(SEARCH(\"망상\",G§)),\nOR(ISNUMBER(SEARCH(\"균열\",G§)),ISNUMBER(SEARCH(\"이격\",G§)))\n),\nI§*J§&\"m\",\nIF(OR(NOT(ISNUMBER(H§)),H§<=0),\"면적 너비 확인\",\nH§*I§*J§&\"㎡\")\n))))", "N": "IFERROR(INDEX($AA$6:$AA$23,MATCH(M§,$Z$6:$Z$23,0)),\"-\")", "O": "_xlfn.IFS(P§=\"\",\"-\",O§1=\"-\",O§2+1,P§<>\"\",O§1+1,TRUE,0)", "O7": "IF(P§=\"\",\"-\",1)"};
 const f3fx = (k, r) => F3_FX[k].replace(/§(\d*)/g, (_, d) => String(r - (Number(d) || 0)));
 function f3Floor(f) {
   const s = String(f || "").trim(); let m;
@@ -2941,12 +2961,14 @@ async function exportXlsx() {
     put(`B${r}`, str(fl.code && m.no ? `${fl.code}-${m.no}` : m.no || ""));
     put(`C${r}`, { t: "s", v: " / ", f: f3fx("C", r) });
     // D 실명은 비워 둠 (사용자 결정 2026-10-23)
-    put(`E${r}`, str(structOf(member))); put(`F${r}`, str(member)); put(`G${r}`, str(defect));
+    const repair = repairOf(m);
+    if (defect && !repair) chk.push(/균열|이격/.test(defect) && !(Number(m.w) > 0) ? "균열폭 없음 → 보수방안 확인" : "보수방안 확인");
+    put(`E${r}`, str(structOf(member, m.dtype))); put(`F${r}`, str(member)); put(`G${r}`, str(defect));
     put(`H${r}`, num(m.w)); put(`I${r}`, num(m.l)); put(`J${r}`, num(m.count || 1));
     put(`K${r}`, { t: "s", v: qty, f: f3fx("K", r) });
-    // 발생원인(L)은 비워 둠: PC에서 정리. 보수방안(M)·우선순위(N)는 양식 수식이 판정
-    put(`M${r}`, { t: "s", v: "", f: f3fx("M", r), F: `M${r}:M${r}` });
-    put(`N${r}`, { t: "s", v: "-", f: f3fx("N", r) });
+    // 발생원인(L)은 비워 둠: PC에서 정리. 보수방안(M)은 우리 기준 값(양식 수식 덮어씀), 우선순위(N)는 양식 수식
+    put(`M${r}`, str(repair));
+    put(`N${r}`, F3_PRIORITY[repair] ? { t: "n", v: F3_PRIORITY[repair], f: f3fx("N", r) } : { t: "s", v: "-", f: f3fx("N", r) });
     // O 사진 순번: 7행은 보통 수식, 8행부터는 배열 수식 (양식과 같음)
     seq[r] = m.photo ? (r === 7 ? 1 : seq[r - 1] === "-" ? (Number(seq[r - 2]) || 0) + 1 : (Number(seq[r - 1]) || 0) + 1) : "-";
     put(`O${r}`, r === 7 ? { t: seq[r] === "-" ? "s" : "n", v: seq[r], f: f3fx("O7", r) } : { t: seq[r] === "-" ? "s" : "n", v: seq[r], f: f3fx("O", r), F: `O${r}:O${r}` });
@@ -3540,6 +3562,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 026ed9191f -->
+<!-- build c8a320cc00 -->
 </body>
 </html>
