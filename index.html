@@ -327,7 +327,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "11a1f4b0c3"; window.DY_BUILT = "2026-10-23 11:24";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "d64788ee33"; window.DY_BUILT = "2026-10-23 11:28"; window.DY_FS_TPL = "현장조사장 정리 V1.1";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2825,9 +2825,8 @@ function exportModal() {
       </section>
       <section class="xcard">
         <h4>${eq ? "장비조사 엑셀 (현장조사장 정리)" : "결과표 엑셀"}</h4>
-        <p class="xd">${eq ? "고른 양식(xlsm)에 바로 채움 · 철근배근 → 분류입력, 부재규격 → 부재규격, 압축강도 시트 추가" : "새 결과표(공사비 합본) 7행부터 · B7:P 복사해 양식 7행에 붙여넣기"}</p>
-        ${eq ? `<div class="xrow" style="font-size:13px">양식 <b id="x-tplname">${esc(fsTplName() || "없음 · 먼저 골라 주세요")}</b>
-          <label class="btn" style="min-height:36px">${fsTplName() ? "바꾸기" : "양식 고르기"}<input type="file" id="x-tpl" accept=".xlsm,application/vnd.ms-excel.sheet.macroEnabled.12" hidden></label></div>` : ""}
+        <p class="xd">${eq ? "양식(xlsm)에 바로 채움 · 철근배근 → 분류입력, 부재규격 → 부재규격, 압축강도 시트 추가" : "새 결과표(공사비 합본) 7행부터 · B7:P 복사해 양식 7행에 붙여넣기"}</p>
+        ${eq ? `<div class="xrow" style="font-size:13px;color:var(--muted)">양식 <b style="color:var(--ink)">${esc(window.DY_FS_TPL || "현장조사장 정리")}</b> (앱에 포함)</div>` : ""}
         <div class="xrow">층 순서 <span class="chips">${[["top", "지붕 → 지하"], ["bottom", "지하 → 지붕"]].map(([v, nm]) => `<button class="chip" data-ford="${v}" aria-pressed="${(S.proj.prefs.floorOrder || "top") === v}">${nm}</button>`).join("")}</span></div>
         <div class="xrow" style="justify-content:flex-end">${eq ? `<button class="btn ghost" id="x-xlsx" style="min-height:36px;font-size:13px">항목별 간단 엑셀(xlsx)</button><button class="btn primary" id="x-fs">엑셀 만들기</button>` : `<button class="btn primary" id="x-xlsx">엑셀 만들기</button>`}</div>
       </section>
@@ -2854,12 +2853,6 @@ function exportModal() {
   if ($("#x-ppt")) $("#x-ppt").onclick = () => runBusy($("#x-ppt"), exportSitePptx);
   if ($("#x-fs")) {
     $("#x-fs").onclick = () => runBusy($("#x-fs"), exportFieldSurveyXlsm);
-    $("#x-tpl").onchange = async (e) => {
-      const f = e.target.files && e.target.files[0]; if (!f) return;
-      try { await setFsTemplate(f); $("#x-tplname").textContent = fsTplName(); toast("양식을 기억했습니다 (이 기기)"); }
-      catch (er) { toast("양식 오류: " + ((er && er.message) || er), 4000); }
-      e.target.value = "";
-    };
   }
 }
 /* ---------------- 설정 (톱니바퀴): 도면 추가 · 합치기 · 정리 · 버튼 목록 ---------------- */
@@ -3107,20 +3100,12 @@ async function exportEquipXlsx() {
   await saveFile(`${S.proj.name}_장비조사.xlsx`, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
 }
 
-/* ---------- 내보내기: 현장조사장 정리 xlsm (사용자가 고른 양식 파일에 직접 채움) ----------
-   양식(현장조사장 정리 V1.1.xlsm)은 태블릿마다 한 번 골라 IndexedDB에 둠 (공개 앱에 양식을 싣지 않음).
+/* ---------- 내보내기: 현장조사장 정리 xlsm (앱에 넣은 양식 파일에 직접 채움) ----------
+   양식은 build_pwa.py가 빌드 때마다 AI 작업실의 최신 '현장조사장 정리 V*.xlsm'을 templates/fieldsurvey.xlsm 으로 복사 (오프라인 캐시 포함).
+   사용자 결정(2026-10-23): 양식 바뀔 때마다 기기에서 고르지 않도록 앱에 포함 (공개 저장소에 올라가는 것 알고 정함).
    xlsm 안의 시트 XML에서 칸 값만 바꿈 → 매크로·버튼·색 표시·드롭다운·수식 그대로.
    분류입력 = 철근배근(R), 부재규격 = 부재규격(D), 압축강도(S)는 부재규격 뒤에 시트를 새로 만듦 */
-const FS_TPL_KEY = "__tpl-fieldsurvey";
-function fsTplName() { try { return localStorage.getItem("dy-fs-tpl-name") || ""; } catch (e) { return ""; } }
-async function setFsTemplate(file) {
-  if (!window.JSZip) throw new Error("압축 기능을 불러오지 못했습니다 (인터넷 확인)");
-  const zip = await JSZip.loadAsync(await file.arrayBuffer());
-  const names = (await fsSheets(zip)).map((x) => x.name);
-  if (!names.includes("분류입력") || !names.includes("부재규격")) throw new Error("분류입력·부재규격 시트가 있는 양식이 아닙니다");
-  await Local.putBlob(FS_TPL_KEY, new Blob([await file.arrayBuffer()]));
-  try { localStorage.setItem("dy-fs-tpl-name", nfc(file.name)); } catch (e) {}
-}
+const FS_TPL_URL = "templates/fieldsurvey.xlsm";
 // 시트 이름 → xl/worksheets/sheetN.xml
 async function fsSheets(zip) {
   const wb = await zip.file("xl/workbook.xml").async("string"), rels = await zip.file("xl/_rels/workbook.xml.rels").async("string");
@@ -3150,8 +3135,10 @@ function fsItemNames(member) {
 }
 async function exportFieldSurveyXlsm() {
   if (!window.JSZip) throw new Error("압축 기능을 불러오지 못했습니다 (인터넷 확인)");
-  const tpl = await Local.getBlob(FS_TPL_KEY); if (!tpl) throw new Error("먼저 [양식 고르기]로 현장조사장 정리 양식(xlsm)을 고르세요");
-  const zip = await JSZip.loadAsync(await tpl.arrayBuffer()), sheets = await fsSheets(zip);
+  let tpl = null; try { const r = await fetch(FS_TPL_URL); if (r.ok) tpl = await r.arrayBuffer(); } catch (e) {}
+  if (!tpl) throw new Error("양식 파일을 불러오지 못했습니다 (앱을 인터넷 되는 곳에서 한 번 열어 주세요)");
+  const zip = await JSZip.loadAsync(tpl), sheets = await fsSheets(zip);
+  if (!sheets.some((x) => x.name === "분류입력") || !sheets.some((x) => x.name === "부재규격")) throw new Error("양식에 분류입력·부재규격 시트가 없습니다");
   const pathOf = (nm) => (sheets.find((x) => x.name === nm) || {}).path;
   const MAXR = 200, ord = equipOrdered(), pick = (key) => { const lab = equipLabels(key); return ord.filter((m) => lab.has(m.id)).map((m) => [m, lab.get(m.id)]); };
   const rebar = pick("rebar"), size = pick("size"), comp = pick("comp");
@@ -3588,6 +3575,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 11a1f4b0c3 -->
+<!-- build d64788ee33 -->
 </body>
 </html>

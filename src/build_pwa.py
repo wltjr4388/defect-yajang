@@ -22,6 +22,33 @@ VENDOR = {
     "pptxgen.bundle.js": "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js",
 }
 
+# 장비조사 엑셀 양식: 빌드 때마다 AI 작업실의 최신 '현장조사장 정리 V*.xlsm'을 앱에 복사
+# (집 컴퓨터처럼 그 폴더가 없으면 저장소에 있는 templates/fieldsurvey.xlsm 그대로 씀)
+TPL_GLOB_DIR = pathlib.Path.home() / "Desktop" / "AI 작업실"
+TPL_OUT = OUT / "templates" / "fieldsurvey.xlsm"
+
+
+def ver_key(p):
+    m = re.search(r"V(\d+)\.(\d+)", p.stem)
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
+def copy_template():
+    cands = [p for p in TPL_GLOB_DIR.glob("현장조사장 정리 V*/현장조사장 정리 V*.xlsm") if not p.name.startswith("~$")]
+    name_file = TPL_OUT.with_suffix(".txt")
+    if cands:
+        src = max(cands, key=ver_key)
+        TPL_OUT.parent.mkdir(parents=True, exist_ok=True)
+        TPL_OUT.write_bytes(src.read_bytes())
+        name_file.write_text(src.stem, encoding="utf-8")
+        print("template", src)
+    elif TPL_OUT.exists():
+        print("template (저장소에 있던 것)", TPL_OUT)
+    else:
+        print("template 없음 — 장비조사 엑셀 만들기가 안 됨")
+    return name_file.read_text(encoding="utf-8").strip() if name_file.exists() else ""
+
+
 HEAD = """<!doctype html>
 <html lang="ko">
 <head>
@@ -75,7 +102,7 @@ def make_icons():
         im.save(d / name)
 
 
-def build_html(version, built):
+def build_html(version, built, tpl_name=""):
     src = SRC.read_text(encoding="utf-8")
     # 외부 글꼴 제거 (오프라인에서 못 받음 → 기기 글꼴 사용)
     src = re.sub(r'<link rel="preconnect"[^>]*>\n', "", src)
@@ -84,7 +111,7 @@ def build_html(version, built):
     # CDN → 앱 안의 파일
     src = src.replace(
         '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>',
-        f'<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "{version}"; window.DY_BUILT = "{built}";</script>\n'
+        f'<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "{version}"; window.DY_BUILT = "{built}"; window.DY_FS_TPL = {json.dumps(tpl_name, ensure_ascii=False)};</script>\n'
         '<script src="vendor/pdf.min.js"></script>',
     )
     src = src.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>\n', "")
@@ -120,13 +147,15 @@ def main():
     OUT.mkdir(exist_ok=True)
     fetch_vendor()
     make_icons()
+    tpl_name = copy_template()
     html_body = SRC.read_bytes()
-    version = hashlib.sha256(html_body + (HERE / "build_pwa.py").read_bytes()).hexdigest()[:10]
+    tpl_bytes = TPL_OUT.read_bytes() if TPL_OUT.exists() else b""
+    version = hashlib.sha256(html_body + (HERE / "build_pwa.py").read_bytes() + tpl_bytes).hexdigest()[:10]   # 양식만 바뀌어도 새 버전
     built = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    (OUT / "index.html").write_text(build_html(version, built), encoding="utf-8")
+    (OUT / "index.html").write_text(build_html(version, built, tpl_name), encoding="utf-8")
     # 앱의 [업데이트 확인] 버튼이 이 파일과 지금 버전을 비교함
     (OUT / "version.json").write_text(json.dumps({"build": version, "built": built}, ensure_ascii=False), encoding="utf-8")
-    files = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"] + [f"vendor/{n}" for n in VENDOR]
+    files = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"] + [f"vendor/{n}" for n in VENDOR] + (["templates/fieldsurvey.xlsm"] if TPL_OUT.exists() else [])
     (OUT / "sw.js").write_text(
         f"""// 결함 야장 오프라인 캐시 — build_pwa.py가 생성
 const CACHE = "dy-{version}";
