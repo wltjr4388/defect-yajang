@@ -388,7 +388,8 @@ function rbKind(member) { const s = String(member || ""); return /슬래브/.tes
 function rbHints(member) {
   return { beam: ["주근", "주근단수", "스터럽"], col: ["X방향 주근", "Y방향 주근", "띠철근"], wall: ["수직근", "수평근", "보통 없음"], slab: ["단변근", "장변근", "보통 없음"] }[rbKind(member)] || ["", "", ""];
 }
-function rbVals(m) { if (m.photo && !m.rx && !m.ry && !m.rz) return [m.photo, "", ""]; return RB_AXES.map((k) => m[k] || ""); }   // 예전(한 칸) 값은 X로
+const isThk = (member) => rbKind(member) === "wall" || rbKind(member) === "slab";   // 벽체·슬래브: 철근 X·Y만, 규격은 두께 한 칸
+function rbVals(m) { if (m.photo && !m.rx && !m.ry && !m.rz) return [m.photo, "", ""]; return RB_AXES.map((k, i) => (i === 2 && isThk(m.member) ? "" : m[k] || "")); }   // 예전(한 칸) 값은 X로
 function rbText(m) { return rbVals(m).map((v, i) => (v ? "XYZ"[i] + v : "")).filter(Boolean).join(" "); }
 // 다음 이미지번호: 가장 최근 위치의 마지막 번호 + 1
 function rbNext(exceptId) {
@@ -397,7 +398,7 @@ function rbNext(exceptId) {
 }
 // 압축강도는 범위(42~45), 부재규격은 두 치수(400×600)
 function compText(m) { return m.cmin || m.cmax ? `${m.cmin || "?"}~${m.cmax || "?"}` : ""; }
-function sizeText(m) { return m.sw || m.sh ? `${m.sw || "?"}×${m.sh || "?"}` : ""; }
+function sizeText(m, x = "×") { if (isThk(m.member)) return m.sw ? `THK.${m.sw}` : ""; return m.sw || m.sh ? `${m.sw || "?"}${x}${m.sh || "?"}` : ""; }
 // 장비조사: 점 = 수평부재(보·슬래브), 화살표 = 수직부재(기둥·벽체). 직접 입력한 부재는 양쪽 다 보임
 const isHorizMember = (x) => /보|슬래브/.test(x), isVertMember = (x) => /벽|기둥/.test(x);
 const EQUIP_HMEMBERS = ["바닥 보", "천장 보", "바닥 슬래브", "천장 슬래브"], EQUIP_VMEMBERS = ["벽체", "기둥"];
@@ -2246,7 +2247,7 @@ function equipSummary(m) {
 }
 function renderEquipPanel(P, m) {
   const floor = floorOf(m), its = m.items || [], rebar = its.includes("rebar");
-  const vals = rbVals(m), hints = rbHints(m.member), nz = rbKind(m.member) === "wall" || rbKind(m.member) === "slab" ? 2 : 3;
+  const vals = rbVals(m), hints = rbHints(m.member), thk = isThk(m.member), nz = thk ? 2 : 3;
   // 이 위치에 적은 번호가 있으면 그 다음부터 (X 6531 → Y 6532), 없으면 직전 위치의 마지막 번호 다음부터
   const own = vals.filter((v) => /\d/.test(v)).pop(), empty = vals.slice(0, nz).filter((v) => !v).length, nxt = own ? bumpPhoto(own, 1) : rbNext(m.id);
   P.innerHTML = `
@@ -2259,12 +2260,13 @@ function renderEquipPanel(P, m) {
       ${m.type !== "arrow" && m.member ? `<div class="xrow" style="gap:8px"><span style="font-size:13px;color:var(--muted)">위치</span><span class="chips">${["단부", "중앙부"].map((v) => `<button class="chip" data-pos="${v}" aria-pressed="${m.pos === v}">${v}</button>`).join("")}</span></div>` : ""}</div>
     <div class="fld sec"><span class="lab">조사 항목</span><div class="chips">${EQUIP_ITEMS.map((it) => `<button class="chip" data-item="${it.key}" aria-pressed="${its.includes(it.key)}">${esc(it.name)}</button>`).join("")}</div></div>
     ${rebar ? `<div class="fld sec"><span class="lab">철근배근 이미지번호</span>
-      <div class="rbxyz">${RB_AXES.map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
+      <div class="rbxyz" style="grid-template-columns:repeat(${nz},minmax(0,1fr))">${RB_AXES.slice(0, nz).map((k, i) => `<label class="rbax"><b>${"XYZ"[i]}</b><input class="inp num" data-rb="${k}" autocomplete="off" autocapitalize="characters" value="${esc(vals[i])}" placeholder="${esc(hints[i] || "")}"></label>`).join("")}</div>
       ${empty && nxt ? `<button class="btn sugg rbfill" id="f-rbfill">빈 칸 이어서 채우기 · ${esc(nxt)}부터</button>` : ""}
     </div>` : ""}
     ${its.includes("comp") ? `<div class="fld sec"><span class="lab">압축강도 범위</span>
       <div class="pair"><input class="inp num" data-ev="cmin" inputmode="numeric" autocomplete="off" value="${esc(m.cmin || "")}" placeholder="최소"><span class="x">~</span><input class="inp num" data-ev="cmax" inputmode="numeric" autocomplete="off" value="${esc(m.cmax || "")}" placeholder="최대"></div></div>` : ""}
-    ${its.includes("size") ? `<div class="fld sec"><span class="lab">부재규격 (mm)</span>
+    ${its.includes("size") && thk ? `<div class="fld sec"><span class="lab">부재규격 · 두께 (mm)</span>
+      <div class="pair" style="grid-template-columns:auto minmax(0,1fr)"><span class="x">THK.</span><input class="inp num" data-ev="sw" inputmode="numeric" autocomplete="off" value="${esc(m.sw || "")}" placeholder="예: 200"></div></div>` : its.includes("size") ? `<div class="fld sec"><span class="lab">부재규격 (mm)</span>
       <div class="pair"><input class="inp num" data-ev="sw" inputmode="numeric" autocomplete="off" value="${esc(m.sw || "")}" placeholder="예: 400"><span class="x">×</span><input class="inp num" data-ev="sh" inputmode="numeric" autocomplete="off" value="${esc(m.sh || "")}" placeholder="예: 600"></div></div>` : ""}
     <div class="fld inl sec"><span class="lab">메모</span><textarea class="inp memo1" id="f-memo" rows="1" placeholder="버튼으로 안 되는 내용">${esc(m.memo)}</textarea></div>
     <div class="pfoot"><button class="btn danger del" id="f-del">삭제</button><button class="btn del" id="f-move">다른 도면으로</button><button class="btn primary" id="f-done">완료</button></div>`;
@@ -2772,7 +2774,7 @@ function missingOf(m) {
     if (!its.length) b.push("조사 항목");
     if (its.includes("rebar") && !rbVals(m)[0]) b.push("철근 이미지번호(X)");
     if (its.includes("comp") && !(m.cmin && m.cmax)) b.push("압축강도 범위");
-    if (its.includes("size") && !(m.sw && m.sh)) b.push("부재규격");
+    if (its.includes("size") && !(m.sw && (m.sh || isThk(m.member)))) b.push("부재규격");
     return b;
   }
   const a = [];
@@ -3144,7 +3146,7 @@ async function exportFieldSurveyXlsm() {
   // 부재규격: A 층 · B D번호 · C 부재 · D 설계치수(-) · E 실측치수 · F 비고 · G 야장 원번호 (양식 칸이 텍스트라 모두 글자로)
   let x2 = await zip.file(pathOf("부재규격")).async("string");
   size.forEach(([m, lab], i) => {
-    const r = 5 + i, dim = m.sw || m.sh ? `${m.sw || "?"}x${m.sh || "?"}` : "";
+    const r = 5 + i, dim = sizeText(m, "x");
     const cells = { A: f3Floor(floorOf(m)).name, B: lab.replace("-", ""), C: nfc(m.member || ""), D: "-", E: dim, F: nfc(m.memo || ""), G: fsOrigin(m) };
     for (const [c, v] of Object.entries(cells)) x2 = xmlSetCell(x2, c + r, v);
   });
