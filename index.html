@@ -324,7 +324,7 @@ textarea.inp.memo1 { min-height: 44px; resize: none; overflow: hidden; }
   <div id="toast" hidden></div>
 </div>
 
-<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "2c03fb33f2"; window.DY_BUILT = "2026-10-23 09:33";</script>
+<script>window.DY_OFFLINE = true; window.DY_WORKER_SRC = "vendor/pdf.worker.min.js"; window.DY_BUILD = "fc3309871d"; window.DY_BUILT = "2026-10-23 09:46";</script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -2744,6 +2744,13 @@ function exportModal() {
         <div class="xrow">층 순서 <span class="chips">${[["top", "지붕 → 지하"], ["bottom", "지하 → 지붕"]].map(([v, nm]) => `<button class="chip" data-ford="${v}" aria-pressed="${(S.proj.prefs.floorOrder || "top") === v}">${nm}</button>`).join("")}</span></div>
         <button class="btn primary xgo" id="x-xlsx">엑셀 만들기</button>
       </section>
+      ${eq ? `<section class="xcard">
+        <h4>현장조사장 정리 (xlsm)</h4>
+        <p class="xd">고른 양식 파일에 바로 채움 · 철근배근 → 분류입력, 부재규격 → 부재규격, 압축강도 시트 추가 · 층 순서는 위 엑셀과 같음</p>
+        <div class="xrow" style="font-size:13px">양식 <b id="x-tplname">${esc(fsTplName() || "없음")}</b>
+          <label class="btn" style="min-height:36px">${fsTplName() ? "바꾸기" : "양식 고르기"}<input type="file" id="x-tpl" accept=".xlsm,application/vnd.ms-excel.sheet.macroEnabled.12" hidden></label></div>
+        <button class="btn primary xgo" id="x-fs" ${fsTplName() ? "" : "disabled"}>xlsm 만들기</button>
+      </section>` : ""}
       ${site ? `<section class="xcard">
         <h4>주변현황 파워포인트</h4>
         <p class="xd">배치도 그림 위에 표시를 파워포인트 도형으로 · 2장(인접건축물·주변현황 / 지하매설물) · 오른쪽에 사진번호 목록</p>
@@ -2765,6 +2772,15 @@ function exportModal() {
   $("#x-json").onclick = () => runBusy($("#x-json"), exportJson);
   if ($("#x-final")) $("#x-final").onclick = finalizeModal;
   if ($("#x-ppt")) $("#x-ppt").onclick = () => runBusy($("#x-ppt"), exportSitePptx);
+  if ($("#x-fs")) {
+    $("#x-fs").onclick = () => runBusy($("#x-fs"), exportFieldSurveyXlsm);
+    $("#x-tpl").onchange = async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      try { await setFsTemplate(f); $("#x-tplname").textContent = fsTplName(); $("#x-fs").disabled = false; toast("양식을 기억했습니다 (이 기기)"); }
+      catch (er) { toast("양식 오류: " + ((er && er.message) || er), 4000); }
+      e.target.value = "";
+    };
+  }
 }
 /* ---------------- 설정 (톱니바퀴): 도면 추가 · 합치기 · 정리 · 버튼 목록 ---------------- */
 function manageModal() {
@@ -3000,6 +3016,112 @@ async function exportEquipXlsx() {
   }
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array", bookSST: true });
   await saveFile(`${S.proj.name}_장비조사.xlsx`, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+}
+
+/* ---------- 내보내기: 현장조사장 정리 xlsm (사용자가 고른 양식 파일에 직접 채움) ----------
+   양식(현장조사장 정리 V1.1.xlsm)은 태블릿마다 한 번 골라 IndexedDB에 둠 (공개 앱에 양식을 싣지 않음).
+   xlsm 안의 시트 XML에서 칸 값만 바꿈 → 매크로·버튼·색 표시·드롭다운·수식 그대로.
+   분류입력 = 철근배근(R), 부재규격 = 부재규격(D), 압축강도(S)는 부재규격 뒤에 시트를 새로 만듦 */
+const FS_TPL_KEY = "__tpl-fieldsurvey";
+function fsTplName() { try { return localStorage.getItem("dy-fs-tpl-name") || ""; } catch (e) { return ""; } }
+async function setFsTemplate(file) {
+  if (!window.JSZip) throw new Error("압축 기능을 불러오지 못했습니다 (인터넷 확인)");
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const names = (await fsSheets(zip)).map((x) => x.name);
+  if (!names.includes("분류입력") || !names.includes("부재규격")) throw new Error("분류입력·부재규격 시트가 있는 양식이 아닙니다");
+  await Local.putBlob(FS_TPL_KEY, new Blob([await file.arrayBuffer()]));
+  try { localStorage.setItem("dy-fs-tpl-name", nfc(file.name)); } catch (e) {}
+}
+// 시트 이름 → xl/worksheets/sheetN.xml
+async function fsSheets(zip) {
+  const wb = await zip.file("xl/workbook.xml").async("string"), rels = await zip.file("xl/_rels/workbook.xml.rels").async("string");
+  const tgt = new Map([...rels.matchAll(/<Relationship [^>]*?Id="([^"]+)"[^>]*?Target="([^"]+)"/g)].map((m) => [m[1], m[2]]));
+  const tgt2 = new Map([...rels.matchAll(/<Relationship [^>]*?Target="([^"]+)"[^>]*?Id="([^"]+)"/g)].map((m) => [m[2], m[1]]));
+  return [...wb.matchAll(/<sheet [^>]*?name="([^"]+)"[^>]*?r:id="([^"]+)"/g)].map((m) => {
+    const t = tgt.get(m[2]) || tgt2.get(m[2]) || "";
+    return { name: m[1].replace(/&amp;/g, "&"), path: t.startsWith("/") ? t.slice(1) : "xl/" + t };
+  });
+}
+const xmlEsc = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, ">").replace(/"/g, "&quot;");
+// 있는 칸의 서식(s)은 두고 값만 바꿈. 글자는 inlineStr, 숫자는 v
+function xmlSetCell(xml, ref, val) {
+  const re = new RegExp(`<c r="${ref}"(?: [^>]*?)?(?:/>|>[\\s\\S]*?</c>)`);
+  const m = xml.match(re); if (!m) return xml;   // 양식 행(5~204) 밖은 없음
+  const sm = m[0].match(/^<c [^>]*?\bs="(\d+)"/), st = sm ? ` s="${sm[1]}"` : "";
+  const cell = val === "" || val == null ? `<c r="${ref}"${st}/>`
+    : typeof val === "number" ? `<c r="${ref}"${st}><v>${val}</v></c>`
+    : `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xmlEsc(val)}</t></is></c>`;
+  return xml.replace(re, cell);
+}
+const circNo = (n) => (n >= 1 && n <= 20 ? String.fromCharCode(0x2460 + n - 1) : n >= 21 && n <= 35 ? String.fromCharCode(0x3251 + n - 21) : n >= 36 && n <= 50 ? String.fromCharCode(0x32b1 + n - 36) : `(${n})`);
+const fsOrigin = (m) => `${f3Floor(floorOf(m)).name} ${circNo(m.no)}`.trim();
+// 철근배근 X·Y·Z → 분류입력 항목 이름 (양식 설정 시트 기본값과 같게)
+function fsItemNames(member) {
+  return { beam: ["주근", "주근단수", "스터럽"], col: ["주근", "주근", "후프철근"], wall: ["수직근", "수평근", "철근"], slab: ["단변근", "장변근", "철근"] }[rbKind(member)] || ["철근", "철근", "철근"];
+}
+async function exportFieldSurveyXlsm() {
+  if (!window.JSZip) throw new Error("압축 기능을 불러오지 못했습니다 (인터넷 확인)");
+  const tpl = await Local.getBlob(FS_TPL_KEY); if (!tpl) throw new Error("먼저 양식 파일(xlsm)을 고르세요");
+  const zip = await JSZip.loadAsync(await tpl.arrayBuffer()), sheets = await fsSheets(zip);
+  const pathOf = (nm) => (sheets.find((x) => x.name === nm) || {}).path;
+  const MAXR = 200, ord = equipOrdered(), pick = (key) => { const lab = equipLabels(key); return ord.filter((m) => lab.has(m.id)).map((m) => [m, lab.get(m.id)]); };
+  const rebar = pick("rebar"), size = pick("size"), comp = pick("comp");
+  if (rebar.length > MAXR || size.length > MAXR) throw new Error(`양식 칸은 ${MAXR}줄까지입니다 (철근배근 ${rebar.length}, 부재규격 ${size.length})`);
+  const posOf = (m) => (m.type !== "arrow" ? m.pos || "" : "");
+  // 분류입력: A 번호 · B 층 · C 부재 · E 단부/중앙부 · F 이미지개수(1장일 때) · G 이미지번호 · J/L/N 항목 · P 메모 · X 야장 원번호
+  let x1 = await zip.file(pathOf("분류입력")).async("string");
+  rebar.forEach(([m], i) => {
+    const r = 5 + i, names = fsItemNames(m.member), got = rbVals(m).map((v, k) => [names[k], nfc(String(v || "").trim())]).filter(([, v]) => v);
+    const cells = { A: i + 1, B: f3Floor(floorOf(m)).name, C: nfc(m.member || ""), E: posOf(m), F: got.length === 1 && /^\d+$/.test(got[0][1]) ? 1 : "", G: got.map(([, v]) => v).join(","),
+      J: (got[0] || [])[0] || "", L: (got[1] || [])[0] || "", N: (got[2] || [])[0] || "", P: nfc(m.memo || ""), X: fsOrigin(m) };
+    for (const [c, v] of Object.entries(cells)) x1 = xmlSetCell(x1, c + r, v);
+  });
+  zip.file(pathOf("분류입력"), x1);
+  // 부재규격: A 층 · B D번호 · C 부재 · D 설계치수(-) · E 실측치수 · F 비고 · G 야장 원번호 (양식 칸이 텍스트라 모두 글자로)
+  let x2 = await zip.file(pathOf("부재규격")).async("string");
+  size.forEach(([m, lab], i) => {
+    const r = 5 + i, dim = m.sw || m.sh ? `${m.sw || "?"}x${m.sh || "?"}` : "";
+    const cells = { A: f3Floor(floorOf(m)).name, B: lab.replace("-", ""), C: nfc(m.member || ""), D: "-", E: dim, F: nfc(m.memo || ""), G: fsOrigin(m) };
+    for (const [c, v] of Object.entries(cells)) x2 = xmlSetCell(x2, c + r, v);
+  });
+  zip.file(pathOf("부재규격"), x2);
+  // 압축강도: 새 시트 (부재규격과 같은 서식 번호를 빌려 씀)
+  if (!pathOf("압축강도")) {
+    const st = (ref, dflt) => { const mm = x2.match(new RegExp(`<c r="${ref}"[^>]*?\\bs="(\\d+)"`)); return mm ? mm[1] : dflt; };
+    const sT = st("A1", "0"), sH = st("A4", "0"), sD = st("A5", "0"), sF = st("F5", sD);
+    const heads = ["층", "구분", "조사 부재", "상세위치", "범위", "비고", "야장 원번호"], widths = [10.6, 7.6, 12.6, 10.6, 14.6, 30.6, 22.6], L = "ABCDEFG";
+    const is = (ref, s, v) => (v === "" ? `<c r="${ref}" s="${s}"/>` : `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`);
+    let rows = `<row r="1" ht="30" customHeight="1">${is("A1", sT, "압축강도 조사 정리표")}</row>`;
+    rows += `<row r="2">${is("A2", "0", "범위는 현장에서 적은 최소~최대. 층은 상부→하부, 같은 층 안은 기둥→벽체→바닥 슬래브→바닥 보 순.")}</row>`;
+    rows += `<row r="4" ht="20.1" customHeight="1">${heads.map((h, k) => is(L[k] + "4", sH, h)).join("")}</row>`;
+    comp.forEach(([m, lab], i) => {
+      const r = 5 + i, v = [f3Floor(floorOf(m)).name, lab.replace("-", ""), nfc(m.member || ""), posOf(m), compText(m), nfc(m.memo || ""), fsOrigin(m)];
+      rows += `<row r="${r}">${v.map((x, k) => is(L[k] + r, k >= 5 ? sF : sD, x)).join("")}</row>`;
+    });
+    const last = Math.max(4, 4 + comp.length);
+    const sx = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:G${last}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="16.5"/><cols>${widths.map((w, k) => `<col min="${k + 1}" max="${k + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${rows}</sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
+    let n = 1; while (zip.file(`xl/worksheets/sheet${n}.xml`)) n++;
+    zip.file(`xl/worksheets/sheet${n}.xml`, sx);
+    let rels = await zip.file("xl/_rels/workbook.xml.rels").async("string"), rid = 1; while (rels.includes(`Id="rId${rid}"`)) rid++;
+    rels = rels.replace("</Relationships>", `<Relationship Id="rId${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${n}.xml"/></Relationships>`);
+    zip.file("xl/_rels/workbook.xml.rels", rels);
+    let ct = await zip.file("[Content_Types].xml").async("string");
+    ct = ct.replace("</Types>", `<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+    zip.file("[Content_Types].xml", ct);
+    let wbx = await zip.file("xl/workbook.xml").async("string");
+    const sid = Math.max(0, ...[...wbx.matchAll(/sheetId="(\d+)"/g)].map((mm) => +mm[1])) + 1;
+    const after = wbx.match(/<sheet [^>]*?name="부재규격"[^>]*?\/>/);
+    const tag = `<sheet name="압축강도" sheetId="${sid}" r:id="rId${rid}"/>`;
+    wbx = after ? wbx.replace(after[0], after[0] + tag) : wbx.replace("</sheets>", tag + "</sheets>");
+    zip.file("xl/workbook.xml", wbx);
+  }
+  // 열 때 수식(제목 미리보기·중복검사 등) 다시 계산
+  let wbx = await zip.file("xl/workbook.xml").async("string");
+  wbx = /<calcPr\b[^>]*fullCalcOnLoad/.test(wbx) ? wbx : /<calcPr\b/.test(wbx) ? wbx.replace(/<calcPr\b/, '<calcPr fullCalcOnLoad="1"') : wbx.replace("</workbook>", '<calcPr fullCalcOnLoad="1"/></workbook>');
+  zip.file("xl/workbook.xml", wbx);
+  const out = await zip.generateAsync({ type: "blob", compression: "DEFLATE", mimeType: "application/vnd.ms-excel.sheet.macroEnabled.12" });
+  await saveFile(`${S.proj.name}_현장조사 정리.xlsm`, out);
+  toast(`철근배근 ${rebar.length} · 부재규격 ${size.length} · 압축강도 ${comp.length}줄을 채웠습니다`, 3500);
 }
 
 /* ---------------- 내보내기: 주변현황 파워포인트 ---------------- */
@@ -3377,6 +3499,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-<!-- build 2c03fb33f2 -->
+<!-- build fc3309871d -->
 </body>
 </html>
